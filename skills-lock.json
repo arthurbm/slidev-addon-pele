@@ -139,6 +139,12 @@
       "skillPath": "skills/engineering/setup-matt-pocock-skills/SKILL.md",
       "computedHash": "1d35d0afa3ded88c9324d38db08b2cff91cd03e0e11d64786bee41385cd7b9fb"
     },
+    "slidev": {
+      "source": "slidevjs/slidev",
+      "sourceType": "github",
+      "skillPath": "skills/slidev/SKILL.md",
+      "computedHash": "745f8fbe6bd26c17699efff608548560e6d4b5ca65dbcff70d394f9d6f6374aa"
+    },
     "tdd": {
       "source": "mattpocock/skills",
       "sourceType": "github",
