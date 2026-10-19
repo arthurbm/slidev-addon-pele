@@ -41,3 +41,37 @@ flowchart LR
 
 </div>
 </div>
+
+---
+layout: two-cols-header
+---
+
+# Same source, two renderers
+
+::left::
+
+mermaid.js
+
+```mermaid {renderer: 'mermaid', scale: 0.8}
+flowchart TB
+  user[User] --> agent[Agent]
+  agent --> llm[LLM]
+  llm --> agent
+  agent --> tools[Tools]
+  tools --> agent
+  agent --> answer[Answer]
+```
+
+::right::
+
+Pele
+
+```mermaid {scale: 0.8}
+flowchart TB
+  user[User] --> agent[Agent]
+  agent --> llm[LLM]
+  llm --> agent
+  agent --> tools[Tools]
+  tools --> agent
+  agent --> answer[Answer]
+```
