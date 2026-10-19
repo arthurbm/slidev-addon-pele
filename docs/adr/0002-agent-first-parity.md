@@ -1,0 +1,3 @@
+# Agent-first parity with Mermaid and Slidev
+
+Most decks using this addon will be written by AI agents that know Mermaid syntax and Slidev's docs and nothing about this addon. So an agent that writes what those docs teach must get a correct Pele diagram on the first try: ` ```mermaid ` blocks are taken over by default rather than requiring ` ```pele `, Slidev's documented fence options (`scale`, `theme` with Mermaid's theme names) are honoured rather than ignored, click steps reuse the line-highlighting grammar agents already write for code, and every error names the fix (an unknown step id lists the known ids). We favour this over strict compatibility with existing mermaid.js decks: a deck that relies on mermaid.js-only behaviour opts out per deck or per block.
