@@ -12,6 +12,8 @@ import type {
   SequenceModel,
 } from "pele/lazy";
 
+import { readDataIds } from "./data-ids";
+
 /** An edge between two parts. */
 export interface DiagramEdge {
   /** The edge's `data-id`. */
@@ -41,6 +43,17 @@ export interface DiagramContainer {
   parts: string[];
 }
 
+/**
+ * What a diagram offers steps: its parts, or why there are none. A sequence
+ * diagram without messages has nothing to number; some types draw parts
+ * without ids; and a diagram Pele parses may still fail to draw.
+ */
+export type PartsReading =
+  | { kind: "parts"; parts: DiagramParts }
+  | { kind: "no-messages" }
+  | { kind: "no-ids" }
+  | { kind: "undrawable"; message: string };
+
 const byId = (known: string[]): DiagramParts["resolve"] => {
   const ids = new Set(known);
   return (id) => (ids.has(id) ? [id] : undefined);
@@ -48,7 +61,7 @@ const byId = (known: string[]): DiagramParts["resolve"] => {
 
 const flowchartParts = (
   model: FlowchartModel | AgentflowModel
-): DiagramParts => {
+): PartsReading => {
   // Subgraphs are in `nodes` too, under their own id.
   const nodes = [...model.nodes.keys()];
   const edges = model.edges.flatMap((edge) =>
@@ -61,7 +74,10 @@ const flowchartParts = (
   );
   const all = [...nodes, ...edges.map((edge) => edge.id)];
   const known = [...nodes, ...named];
-  return { all, containers: [], edges, known, resolve: byId(known) };
+  return {
+    kind: "parts",
+    parts: { all, containers: [], edges, known, resolve: byId(known) },
+  };
 };
 
 // Pele's sequence statement type for notes (`LINETYPE.NOTE`).
@@ -73,7 +89,7 @@ const RANGE = /^(?<first>\d+)(?:\s*-\s*(?<last>\d+))?$/u;
 // message n is drawn as `i<id>` of the n-th statement that is a message. A
 // note follows the message before it (the first message if none is), and
 // participants stay in view.
-const sequenceParts = (model: SequenceModel): DiagramParts | undefined => {
+const sequenceParts = (model: SequenceModel): PartsReading => {
   const statements = model.messages.flatMap<{
     id: string;
     kind: "message" | "note";
@@ -91,7 +107,7 @@ const sequenceParts = (model: SequenceModel): DiagramParts | undefined => {
   );
   const [firstMessage] = messages;
   if (firstMessage === undefined) {
-    return undefined;
+    return { kind: "no-messages" };
   }
   let lastMessage = firstMessage;
   const edges: DiagramEdge[] = [];
@@ -115,79 +131,34 @@ const sequenceParts = (model: SequenceModel): DiagramParts | undefined => {
     return messages.slice(first - 1, last);
   };
   return {
-    all: statements.map((statement) => statement.id),
-    containers: [],
-    edges,
-    known: messages.map((_, index) => String(index + 1)),
-    resolve,
+    kind: "parts",
+    parts: {
+      all: statements.map((statement) => statement.id),
+      containers: [],
+      edges,
+      known: messages.map((_, index) => String(index + 1)),
+      resolve,
+    },
   };
-};
-
-const TAG = /<(?<close>\/?)[\w:-]+(?<attributes>[^>]*?)(?<selfClosing>\/?)>/gu;
-const DATA_ID = /\sdata-id="(?<id>[^"]*)"/u;
-const ENTITY = /&(?:#(?<code>\d+)|(?<name>amp|lt|gt|quot));/gu;
-const NAMED_ENTITIES = new Map([
-  ["amp", "&"],
-  ["gt", ">"],
-  ["lt", "<"],
-  ["quot", '"'],
-]);
-
-const decodeAttribute = (value: string) =>
-  value.replaceAll(ENTITY, (...match) => {
-    const { code, name = "" } = match.at(-1) as Record<string, string>;
-    return code === undefined
-      ? (NAMED_ENTITIES.get(name) ?? "")
-      : String.fromCodePoint(Number(code));
-  });
-
-/**
- * Every `data-id` in Pele's SVG, in drawing order, with the ids drawn around
- * every one of its elements. An id that also appears outside a part (a
- * railroad rule referenced inside another rule) is not that part's content.
- */
-const readDataIds = (svg: string) => {
-  const around = new Map<string, Set<string>>();
-  const open: (string | undefined)[] = [];
-  for (const tag of svg.matchAll(TAG)) {
-    const { attributes = "", close, selfClosing } = tag.groups ?? {};
-    if (close) {
-      open.pop();
-      continue;
-    }
-    const raw = attributes.match(DATA_ID)?.groups?.id;
-    const id = raw === undefined ? undefined : decodeAttribute(raw);
-    if (id !== undefined) {
-      const outer = open.filter(
-        (other): other is string => other !== undefined && other !== id
-      );
-      const previous = around.get(id);
-      around.set(
-        id,
-        new Set(previous ? outer.filter((other) => previous.has(other)) : outer)
-      );
-    }
-    if (!selfClosing) {
-      open.push(id);
-    }
-  }
-  return around;
 };
 
 // Every other type: each `data-id` Pele draws can be named, edges included,
 // and naming a part drawn around others names them too. Pele's model ids
 // differ from the drawn ones for some types, so the ids come from a drawing.
-const drawnParts = (model: DiagramModel): DiagramParts | undefined => {
+const drawnParts = (model: DiagramModel): PartsReading => {
   let svg = "";
   try {
     ({ svg } = render(model));
-  } catch {
-    return undefined;
+  } catch (error) {
+    return {
+      kind: "undrawable",
+      message: error instanceof Error ? error.message : String(error),
+    };
   }
   const around = readDataIds(svg);
   const all = [...around.keys()];
   if (all.length === 0) {
-    return undefined;
+    return { kind: "no-ids" };
   }
   const containers = all.flatMap((id) => {
     const parts = all.filter((part) => around.get(part)?.has(id));
@@ -196,17 +167,20 @@ const drawnParts = (model: DiagramModel): DiagramParts | undefined => {
   const contents = new Map(containers.map(({ id, parts }) => [id, parts]));
   const known = new Set(all);
   return {
-    all,
-    containers,
-    edges: [],
-    known: all,
-    resolve: (id) =>
-      known.has(id) ? [id, ...(contents.get(id) ?? [])] : undefined,
+    kind: "parts",
+    parts: {
+      all,
+      containers,
+      edges: [],
+      known: all,
+      resolve: (id) =>
+        known.has(id) ? [id, ...(contents.get(id) ?? [])] : undefined,
+    },
   };
 };
 
-/** The parts steps can name in a diagram, or `undefined` for a type without steps. */
-export const diagramParts = (model: DiagramModel): DiagramParts | undefined => {
+/** The parts steps can name in a diagram, or why it has none. */
+export const diagramParts = (model: DiagramModel): PartsReading => {
   switch (model.type) {
     case "agentflow":
     case "flowchart": {

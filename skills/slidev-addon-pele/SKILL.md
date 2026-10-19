@@ -84,7 +84,7 @@ flowchart LR
 ````
 `````
 
-`{at}` and `{duration}` go on the outer fence, as in Slidev. Versions take no steps or options of their own and use the deck's preset; to step through a diagram, give it a slide of its own. The addon draws the fence only when every version is a diagram block it would draw; one handed-back or non-diagram version leaves the whole fence to Slidev, as code.
+`{at}` and `{duration}` go on the outer fence, as in Slidev; `lines` and a `[title]` do nothing for diagrams and give a warning. Versions take no steps or options of their own and use the deck's preset; to step through a diagram, give it a slide of its own. The addon draws the fence only when every version is a diagram block it would draw; one handed-back or non-diagram version leaves the whole fence to Slidev, as code.
 
 ## Animated edges
 
@@ -94,10 +94,10 @@ Mark a flowchart edge with Mermaid's own syntax and the addon moves its dashes: 
 
 Draw those blocks with mermaid.js: `{renderer: 'mermaid'}` on one ` ```mermaid ` block, or `pele: { mermaid: false }` in the headmatter for the whole deck (a block with `{renderer: 'pele'}` still draws with Pele). That covers HTML labels, click callbacks, Mermaid `themeVariables`, and configuration in `setup/mermaid.ts`, which only reaches mermaid.js. ZenUML goes to mermaid.js on its own, which draws it only with the `@mermaid-js/mermaid-zenuml` plugin registered; without it, `slidev export` of that slide hangs. mermaid.js cannot step, so a handed-back block draws whole.
 
-## Options and theming
+## Options and presets
 
 - Every option a block takes (`scale`, `theme`, `reveal`, `renderer`, `at`) and the deck settings under `pele:`: [references/options.md](references/options.md).
-- Presets, dark mode, the `--pele-*` CSS variables and the classes to restyle steps: [references/theming.md](references/theming.md).
+- Presets, dark mode, the `--pele-*` CSS variables and the classes to restyle steps: [references/presets.md](references/presets.md).
 
 ## Verify
 

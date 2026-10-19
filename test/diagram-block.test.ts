@@ -1,7 +1,7 @@
 import { renderAsync } from "pele/lazy";
 import { describe, expect, it } from "vitest";
 
-import { readDiagramBlock } from "../src/diagram-block";
+import { diagram, read } from "./blocks";
 
 const flowchart = `flowchart LR
   user[User] --> agent[Agent]
@@ -10,12 +10,8 @@ const flowchart = `flowchart LR
 
 describe("diagram block", () => {
   it("draws a ```mermaid flowchart with Pele", async () => {
-    const block = readDiagramBlock({ body: flowchart, fence: "mermaid" });
+    const block = await diagram("mermaid", flowchart);
 
-    expect(block.renderer).toBe("pele");
-    if (block.renderer !== "pele") {
-      return;
-    }
     const { svg, type } = await renderAsync(block.source);
     expect(type).toBe("flowchart");
     for (const id of ["user", "agent", "tools"]) {
@@ -23,31 +19,29 @@ describe("diagram block", () => {
     }
   });
 
-  it("draws a ```pele flowchart with Pele", () => {
-    const block = readDiagramBlock({ body: flowchart, fence: "pele" });
-
-    expect(block).toMatchObject({ renderer: "pele", source: flowchart.trim() });
+  it("draws a ```pele flowchart with Pele", async () => {
+    await expect(read("pele", flowchart)).resolves.toMatchObject({
+      renderer: "pele",
+      source: flowchart.trim(),
+    });
   });
 
   it("keeps a broken diagram on Pele, whose message says where the mistake is", async () => {
-    const broken = "flowchart LR\n  A --> B\n  B -->> [x\n";
-    const block = readDiagramBlock({ body: broken, fence: "mermaid" });
+    const block = await diagram(
+      "mermaid",
+      "flowchart LR\n  A --> B\n  B -->> [x\n"
+    );
 
-    expect(block).toMatchObject({ renderer: "pele", warnings: [] });
-    if (block.renderer !== "pele") {
-      return;
-    }
+    expect(block).toMatchObject({ errors: [], warnings: [] });
     await expect(renderAsync(block.source)).rejects.toThrow(
       "Parse error on line 3"
     );
   });
 
-  it("hands a code block in another language back to Slidev", () => {
-    const block = readDiagramBlock({
-      body: "const x = 1",
-      fence: "ts {1|2}",
+  it("hands a code block in another language back to Slidev", async () => {
+    await expect(read("ts {1|2}", "const x = 1")).resolves.toStrictEqual({
+      renderer: "slidev",
+      warnings: [],
     });
-
-    expect(block).toStrictEqual({ renderer: "slidev", warnings: [] });
   });
 });

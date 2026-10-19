@@ -1,41 +1,46 @@
 import { describe, expect, it } from "vitest";
 
-import { readDiagramBlock } from "../src/diagram-block";
+import { diagram } from "./blocks";
 
 const body = "flowchart LR\n  a --> b\n";
 
-const read = (fence: string, headmatter?: Record<string, unknown>) => {
-  const block = readDiagramBlock({ body, fence, headmatter });
-  if (block.renderer !== "pele") {
-    throw new Error(`expected Pele to draw "${fence}"`);
-  }
-  return block;
-};
+const read = (fence: string, headmatter?: Record<string, unknown>) =>
+  diagram(fence, body, headmatter);
 
 describe("presets", () => {
-  it("draws with the auto preset by default", () => {
-    const block = read("mermaid");
+  it("draws with the auto preset by default", async () => {
+    const block = await read("mermaid");
 
     expect(block.preset).toStrictEqual({ name: "auto" });
     expect(block.warnings).toStrictEqual([]);
   });
 
-  it("takes the deck's preset from `pele.theme` in the headmatter", () => {
-    const block = read("mermaid", { pele: { theme: "flexoki" } });
+  it("takes the deck's preset from `pele.theme` in the headmatter", async () => {
+    const block = await read("mermaid", { pele: { theme: "flexoki" } });
 
     expect(block.preset).toStrictEqual({ name: "flexoki" });
   });
 
-  it("takes a block's preset from its `theme` option", () => {
-    const block = read("mermaid {theme: 'flexoki', scale: 0.8}");
+  it("takes a block's preset from its `theme` option", async () => {
+    const block = await read("mermaid {theme: 'flexoki', scale: 0.8}");
 
     expect(block.preset).toStrictEqual({ name: "flexoki" });
   });
 
-  it("lets a block's preset win over the deck's", () => {
-    const block = read('pele {theme: "auto"}', { pele: { theme: "flexoki" } });
+  it("lets a block's preset win over the deck's", async () => {
+    const block = await read('pele {theme: "auto"}', {
+      pele: { theme: "flexoki" },
+    });
 
     expect(block.preset).toStrictEqual({ name: "auto" });
+  });
+
+  it("lets a block's Mermaid theme win over the deck's preset", async () => {
+    const block = await read("mermaid {theme: 'dark'}", {
+      pele: { theme: "flexoki" },
+    });
+
+    expect(block.preset).toStrictEqual({ name: "auto", tone: "dark" });
   });
 });
 
@@ -45,15 +50,18 @@ describe("Mermaid theme names", () => {
     ["base", { name: "auto" }],
     ["neutral", { name: "auto", tone: "grey" }],
     ["dark", { name: "auto", tone: "dark" }],
-  ])("maps `theme: '%s'` to the nearest preset, silently", (theme, preset) => {
-    const block = read(`mermaid {theme: '${theme}'}`);
+  ])(
+    "maps `theme: '%s'` to the nearest preset, silently",
+    async (theme, preset) => {
+      const block = await read(`mermaid {theme: '${theme}'}`);
 
-    expect(block.preset).toStrictEqual(preset);
-    expect(block.warnings).toStrictEqual([]);
-  });
+      expect(block.preset).toStrictEqual(preset);
+      expect(block.warnings).toStrictEqual([]);
+    }
+  );
 
-  it("draws `theme: 'forest'` with auto and warns that it has no preset", () => {
-    const block = read("mermaid {theme: 'forest'}");
+  it("draws `theme: 'forest'` with auto and warns that it has no preset", async () => {
+    const block = await read("mermaid {theme: 'forest'}");
 
     expect(block.preset).toStrictEqual({ name: "auto" });
     expect(block.warnings).toStrictEqual([
@@ -63,8 +71,8 @@ describe("Mermaid theme names", () => {
 
   it.each(["paper", "constructor"])(
     "draws an unknown `theme: '%s'` with auto and lists the valid names",
-    (theme) => {
-      const block = read(`mermaid {theme: '${theme}'}`);
+    async (theme) => {
+      const block = await read(`mermaid {theme: '${theme}'}`);
 
       expect(block.preset).toStrictEqual({ name: "auto" });
       expect(block.warnings).toStrictEqual([
@@ -73,8 +81,8 @@ describe("Mermaid theme names", () => {
     }
   );
 
-  it("warns about an unknown deck `pele.theme` too", () => {
-    const block = read("mermaid", { pele: { theme: 42 } });
+  it("warns about an unknown deck `pele.theme` too", async () => {
+    const block = await read("mermaid", { pele: { theme: 42 } });
 
     expect(block.preset).toStrictEqual({ name: "auto" });
     expect(block.warnings).toStrictEqual([
@@ -82,8 +90,8 @@ describe("Mermaid theme names", () => {
     ]);
   });
 
-  it("maps them in the deck's `pele.theme` too", () => {
-    const block = read("mermaid", { pele: { theme: "dark" } });
+  it("maps them in the deck's `pele.theme` too", async () => {
+    const block = await read("mermaid", { pele: { theme: "dark" } });
 
     expect(block.preset).toStrictEqual({ name: "auto", tone: "dark" });
   });

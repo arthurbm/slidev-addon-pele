@@ -3,6 +3,7 @@ import type { Fence } from "./fence";
 import { readOptions } from "./options";
 import { readPreset } from "./preset";
 import type { Preset } from "./preset";
+import { SCALE_FIX, isScale } from "./scale";
 
 /** What an author writes for one fenced block in a slide. */
 export interface DiagramBlockInput {
@@ -26,19 +27,19 @@ export interface PeleBlock {
   options?: string;
 }
 
+/** A fenced block left to Slidev, which draws ```mermaid with mermaid.js and anything else as code. */
+export interface SlidevBlock {
+  renderer: "slidev";
+  /** The opening line Slidev must read instead, when it differs. */
+  fence?: string;
+  warnings: string[];
+}
+
 /**
  * How the slide shows a fenced block: drawn by Pele, or handed back to
- * Slidev (which draws ```mermaid with mermaid.js and anything else as code).
- * Warnings are for the terminal, each with the `[pele]` prefix.
+ * Slidev. Warnings are for the terminal, each with the `[pele]` prefix.
  */
-export type DiagramBlock =
-  | PeleBlock
-  | {
-      renderer: "slidev";
-      /** The opening line Slidev must read instead, when it differs. */
-      fence?: string;
-      warnings: string[];
-    };
+export type DiagramBlock = PeleBlock | SlidevBlock;
 
 /** Why a ```mermaid block goes back to mermaid.js. */
 type HandBack = "block" | "deck" | "zenuml";
@@ -60,18 +61,32 @@ export const BLOCK_OPTIONS = [
 ] as const;
 const KNOWN_OPTIONS = new Set<string>(BLOCK_OPTIONS);
 
-const checkOptions = (values: Record<string, unknown>): string[] => {
+/** Every setting under `pele` in the deck's headmatter. */
+export const DECK_SETTINGS = ["theme", "mermaid"] as const;
+const KNOWN_SETTINGS = new Set<string>(DECK_SETTINGS);
+
+/** Options that only mean something for a block's steps. */
+const STEP_OPTIONS = ["reveal", "at"] as const;
+
+const checkOptions = (
+  values: Record<string, unknown>,
+  fence: Fence
+): string[] => {
   const warnings = Object.keys(values)
     .filter((key) => !KNOWN_OPTIONS.has(key))
     .map(
       (key) =>
         `[pele] Pele ignores the option ${key}: its options are ${BLOCK_OPTIONS.join(", ")}. Add renderer: 'mermaid' to draw this diagram with mermaid.js.`
     );
-  const { scale } = values;
-  if (scale !== undefined && !(typeof scale === "number" && scale > 0)) {
-    warnings.push(
-      "[pele] scale must be a number greater than 0, as in {scale: 0.8}."
-    );
+  if (values.scale !== undefined && !isScale(values.scale)) {
+    warnings.push(`[pele] ${SCALE_FIX}`);
+  }
+  if (fence.steps === undefined) {
+    for (const key of STEP_OPTIONS.filter((option) => option in values)) {
+      warnings.push(
+        `[pele] ${key} does nothing on a diagram block without steps: add steps before the options, as in \`\`\`${fence.language} {a|b|*}{${key}: ${JSON.stringify(values[key]).replaceAll('"', "'")}}, or remove ${key}.`
+      );
+    }
   }
   return warnings;
 };
@@ -89,7 +104,7 @@ const handBack = (
   fence: Fence,
   reason: HandBack,
   warnings: string[]
-): DiagramBlock => {
+): SlidevBlock => {
   if (reason === "zenuml") {
     warnings.push(
       "[pele] Pele cannot draw ZenUML, so this diagram is handed to mermaid.js, which needs the @mermaid-js/mermaid-zenuml plugin registered to draw it."
@@ -110,12 +125,32 @@ const handBack = (
   };
 };
 
-/** The deck settings under `pele` in the headmatter. */
-const readDeckSettings = (headmatter: Record<string, unknown> = {}) => {
+/** The deck's settings under `pele` in the headmatter, and what is wrong with them. */
+export interface Deck {
+  theme?: unknown;
+  mermaid?: unknown;
+  warnings: string[];
+}
+
+export const readDeck = (headmatter: Record<string, unknown> = {}): Deck => {
   const { pele } = headmatter;
-  return typeof pele === "object" && pele !== null
-    ? (pele as Record<string, unknown>)
-    : {};
+  const settings =
+    typeof pele === "object" && pele !== null
+      ? (pele as Record<string, unknown>)
+      : {};
+  const warnings = Object.keys(settings)
+    .filter((key) => !KNOWN_SETTINGS.has(key))
+    .map(
+      (key) =>
+        `[pele] Unknown setting pele.${key} in the headmatter: the settings are ${DECK_SETTINGS.map((name) => `pele.${name}`).join(", ")}.`
+    );
+  const { mermaid, theme } = settings;
+  if (mermaid !== undefined && typeof mermaid !== "boolean") {
+    warnings.push(
+      `[pele] pele.mermaid in the headmatter must be true or false, got ${JSON.stringify(mermaid)}: write \`pele: { mermaid: false }\` to draw \`\`\`mermaid blocks with mermaid.js.`
+    );
+  }
+  return { mermaid, theme, warnings };
 };
 
 export const readDiagramBlock = (input: DiagramBlockInput): DiagramBlock => {
@@ -124,13 +159,19 @@ export const readDiagramBlock = (input: DiagramBlockInput): DiagramBlock => {
     return { renderer: "slidev", warnings: [] };
   }
   const source = input.body.trim();
-  const deck = readDeckSettings(input.headmatter);
+  const deck = readDeck(input.headmatter);
   const warnings: string[] = [];
   if (fence.ignored) {
     warnings.push(
       `[pele] Ignored "${fence.ignored}" in "\`\`\`${input.fence.trim()}": write steps then options, as in \`\`\`${fence.language} {a|b|*}{scale: 0.8}.`
     );
   }
+  if (fence.joined) {
+    warnings.push(
+      `[pele] Steps and options share one pair of braces in "\`\`\`${input.fence.trim()}": give each its own, as in \`\`\`${fence.language} {${fence.steps}}${fence.options}.`
+    );
+  }
+  warnings.push(...deck.warnings);
 
   const options = readOptions(fence.options);
   const values = options.kind === "literal" ? options.values : {};
@@ -153,11 +194,6 @@ export const readDiagramBlock = (input: DiagramBlockInput): DiagramBlock => {
       );
     }
   } else {
-    if (deck.mermaid !== undefined && typeof deck.mermaid !== "boolean") {
-      warnings.push(
-        `[pele] pele.mermaid in the headmatter must be true or false, got ${JSON.stringify(deck.mermaid)}: write \`pele: { mermaid: false }\` to draw \`\`\`mermaid blocks with mermaid.js.`
-      );
-    }
     if (renderer === "mermaid") {
       return handBack(fence, "block", warnings);
     }
@@ -169,7 +205,7 @@ export const readDiagramBlock = (input: DiagramBlockInput): DiagramBlock => {
     }
   }
 
-  warnings.push(...checkOptions(values));
+  warnings.push(...checkOptions(values, fence));
   // A block's theme wins over the deck's. A theme that Vue computes in the
   // slide cannot be read here, so the deck's applies to it.
   const { preset, warnings: presetWarnings } = readPreset(

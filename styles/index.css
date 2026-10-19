@@ -10,9 +10,12 @@
  */
 
 /* auto: follows the Slidev theme's colours and fonts. Text and lines take the
-   slide's text colour; the background matches Slidev's page background. */
+   slide's text colour. The background, and the fills mixed from it, are the
+   colour painted behind the diagram, which the diagram component reads into
+   --pele-slide-bg (Slidev has no variable for it); until then, Slidev's own
+   page background (bg-main). */
 :where(.pele-diagram[data-pele-preset="auto"]) {
-  --pele-bg: #fff;
+  --pele-bg: var(--pele-slide-bg, #fff);
   --pele-fg: currentColor;
   --pele-line: currentColor;
   --pele-muted: color-mix(in srgb, currentColor 60%, var(--pele-bg));
@@ -24,7 +27,7 @@
 }
 
 :where(html.dark .pele-diagram[data-pele-preset="auto"]) {
-  --pele-bg: #121212;
+  --pele-bg: var(--pele-slide-bg, #121212);
 }
 
 /* auto in greys, for Mermaid's `neutral` theme. */
@@ -47,7 +50,7 @@
   color: #ddd;
 }
 
-/* flexoki: the Flexoki palette, light and dark. */
+/* flexoki: Flexoki's colours, light and dark. */
 :where(.pele-diagram[data-pele-preset="flexoki"]) {
   --pele-bg: #fffcf0;
   --pele-fg: #100f0f;

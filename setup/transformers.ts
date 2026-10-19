@@ -2,115 +2,51 @@ import path from "node:path";
 
 import type {
   CodeblockTransformer,
-  CodeblockTransformContext,
   TransformersSetupReturn,
 } from "@slidev/types";
-import { detectType, load } from "pele/lazy";
 
-import { readDiagramBlock } from "../src/diagram-block";
-import type { PeleBlock } from "../src/diagram-block";
-import { readMagicMove } from "../src/magic-move";
-import type { MagicMoveBlock } from "../src/magic-move";
+import { readFencedBlock } from "../src/fenced-block";
+import type { DiagramView, MagicMoveView } from "../src/fenced-block";
 import { encodeSource } from "../src/source-prop";
-import { describeStepError, planSteps } from "../src/step-plan";
 
-const where = (slide: CodeblockTransformContext["slide"]) =>
-  slide
-    ? `${path.relative(process.cwd(), slide.source.filepath)}, slide ${slide.index + 1}: `
-    : "";
-
-/** Prints a block's step error in the terminal; the slide shows it too. */
-const checkSteps = async (
-  block: PeleBlock,
-  slide: CodeblockTransformContext["slide"]
-) => {
-  if (!block.steps) {
-    return;
+/** The diagram component for a block Pele draws, with the props it needs. */
+const component = (view: DiagramView | MagicMoveView) => {
+  const attributes =
+    view.kind === "magic-move"
+      ? [`versions="${encodeSource(JSON.stringify(view.versions))}"`]
+      : [`source="${encodeSource(view.source)}"`];
+  attributes.push(`preset="${view.preset.name}"`);
+  if (view.preset.tone) {
+    attributes.push(`tone="${view.preset.tone}"`);
   }
-  try {
-    await load(detectType(block.source));
-  } catch {
-    // Pele shows the diagram's own error on the slide.
-    return;
-  }
-  // The mode does not change which ids are valid.
-  const plan = planSteps({
-    mode: "focus",
-    source: block.source,
-    steps: block.steps,
-  });
-  if (plan.kind !== "plan" && plan.kind !== "unreadable") {
-    console.error(`[pele] ${where(slide)}${describeStepError(plan)}`);
-  }
-};
-
-const component = (block: PeleBlock) => {
-  const attributes = [
-    `source="${encodeSource(block.source)}"`,
-    `preset="${block.preset.name}"`,
-  ];
-  if (block.preset.tone) {
-    attributes.push(`tone="${block.preset.tone}"`);
-  }
-  if (block.steps) {
+  if (view.kind === "diagram" && view.steps) {
     // Steps are made of `[\w,|*-]` and spaces, so they never contain a quote.
-    attributes.push(`steps="${block.steps}"`);
+    attributes.push(`steps="${view.steps}"`);
   }
-  if (block.options) {
-    // Like Slidev's Mermaid blocks: the options are a JavaScript expression.
-    attributes.push(`v-bind="${block.options}"`);
-  }
-  return `<PeleDiagram ${attributes.join(" ")} />`;
-};
-
-/** One diagram that moves between its versions, a click each. */
-const magicMoveComponent = (block: MagicMoveBlock) => {
-  const attributes = [
-    `versions="${encodeSource(JSON.stringify(block.versions))}"`,
-    `preset="${block.preset.name}"`,
-  ];
-  if (block.preset.tone) {
-    attributes.push(`tone="${block.preset.tone}"`);
-  }
-  if (block.options) {
-    // Like Slidev's magic-move: `{at}` and the rest bound as an expression.
-    attributes.push(`v-bind="${block.options}"`);
+  if (view.options) {
+    // Like Slidev's Mermaid blocks and magic-move: the options are a
+    // JavaScript expression, bound as the component's props.
+    attributes.push(`v-bind="${view.options}"`);
   }
   return `<PeleDiagram ${attributes.join(" ")} />`;
-};
-
-const printWarnings = (
-  warnings: string[],
-  slide: CodeblockTransformContext["slide"]
-) => {
-  for (const warning of warnings) {
-    console.warn(warning.replace("[pele] ", `[pele] ${where(slide)}`));
-  }
 };
 
 // Runs before Slidev's own Mermaid and magic-move transformers (ADR 0001):
 // returning null hands the block back to Slidev.
 const diagramBlock: CodeblockTransformer = async (context) => {
   const { info, code, fence, options, slide } = context;
-  // Slidev reads a magic-move only from a four-backtick fence.
-  if (fence === 4) {
-    const magicMove = readMagicMove({
-      body: code,
-      fence: info,
-      headmatter: options.data.headmatter,
-    });
-    if (magicMove.renderer === "pele") {
-      printWarnings(magicMove.warnings, slide);
-      return magicMoveComponent(magicMove);
-    }
-  }
-  const block = readDiagramBlock({
+  const block = await readFencedBlock({
+    backticks: fence,
     body: code,
     fence: info,
     headmatter: options.data.headmatter,
+    where: slide
+      ? `${path.relative(process.cwd(), slide.source.filepath)}, slide ${slide.index + 1}`
+      : undefined,
   });
-  printWarnings(block.warnings, slide);
-
+  for (const warning of block.warnings) {
+    console.warn(warning);
+  }
   if (block.renderer !== "pele") {
     // Slidev's transformers share this context, so its Mermaid transformer
     // reads the opening line written here.
@@ -119,8 +55,10 @@ const diagramBlock: CodeblockTransformer = async (context) => {
     }
     return null;
   }
-
-  await checkSteps(block, slide);
+  // The slide shows these too, under the diagram.
+  for (const error of block.errors) {
+    console.error(error);
+  }
   return component(block);
 };
 

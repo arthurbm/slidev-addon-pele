@@ -1,16 +1,12 @@
-import { detectType, load } from "pele/lazy";
 import { describe, expect, it } from "vitest";
 
-import { findAnimatedEdges } from "../src/animated-edges";
-
-const loaded = async (source: string) => {
-  await load(detectType(source));
-  return source;
-};
+import { diagram } from "./blocks";
 
 describe("animated edges", () => {
-  it("finds the edges marked `animate: true` or given an `animation` speed", async () => {
-    const source = await loaded(`flowchart LR
+  it("moves the edges marked `animate: true` or given an `animation` speed", async () => {
+    const block = await diagram(
+      "mermaid",
+      `flowchart LR
   a --> b
   b e1@--> c
   c e2@==> d
@@ -18,22 +14,25 @@ describe("animated edges", () => {
   e1@{ animate: true }
   e2@{ animation: slow }
   e3@{ animation: fast }
-`);
+`
+    );
 
-    expect(findAnimatedEdges(source)).toStrictEqual([
+    expect(block.animatedEdges()).toStrictEqual([
       { id: "e1", speed: "fast" },
       { id: "e2", speed: "slow" },
       { id: "e3", speed: "fast" },
     ]);
   });
 
-  it("finds none in a diagram without edges to animate", async () => {
-    const source = await loaded("sequenceDiagram\n  a->>b: hi\n");
+  it("moves none in a diagram without edges to animate", async () => {
+    const block = await diagram("mermaid", "sequenceDiagram\n  a->>b: hi\n");
 
-    expect(findAnimatedEdges(source)).toStrictEqual([]);
+    expect(block.animatedEdges()).toStrictEqual([]);
   });
 
-  it("finds none in Mermaid syntax Pele cannot parse", () => {
-    expect(findAnimatedEdges("flowchart LR\n  a -->> [x")).toStrictEqual([]);
+  it("moves none in Mermaid syntax Pele cannot parse", async () => {
+    const block = await diagram("mermaid", "flowchart LR\n  a -->> [x");
+
+    expect(block.animatedEdges()).toStrictEqual([]);
   });
 });

@@ -16,6 +16,11 @@ export declare const useNav: () => {
   isPrintMode: ComputedRef<boolean>;
 };
 
+export declare const useDarkMode: () => {
+  /** Whether Slidev shows the deck in dark mode. */
+  isDark: Ref<boolean>;
+};
+
 /** The deck's resolved headmatter settings. */
 export declare const configs: {
   /** How long a magic-move takes, in milliseconds (Slidev's default 800). */

@@ -1,11 +1,11 @@
-# Theming
+# Presets and your own colours
 
 ## Presets
 
 A **preset** is a named set of colours for diagrams. Choose one per deck (`pele: { theme: flexoki }` in the headmatter) or per block (`{theme: 'flexoki'}`); [options.md](options.md) lists the Mermaid theme names that map to them.
 
-- `auto` (the default) follows the Slidev theme: text and lines take the slide's text colour, fills are tints of it, the accent is the theme's primary colour (`--slidev-theme-primary`), the background is Slidev's page background, and labels use the slide's font. Dark mode recolours it live.
-- `flexoki` uses the Flexoki palette, light and dark, and draws the diagram on a card of its own background.
+- `auto` (the default) follows the Slidev theme: text and lines take the slide's text colour, fills are tints of it, the accent is the theme's primary colour (`--slidev-theme-primary`), the background is the one painted behind the diagram (the slide's, from the Slidev theme, the deck's CSS or the slide's `background`), and labels use the slide's font. Dark mode recolours it live.
+- `flexoki` uses Flexoki's colours, light and dark, and draws the diagram on a card of its own background.
 
 ## Dark mode
 

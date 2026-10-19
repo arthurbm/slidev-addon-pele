@@ -38,9 +38,10 @@ export interface Plan {
 /** Why a diagram block's steps cannot be applied. */
 export type StepError =
   | { kind: "unknown-ids"; unknown: string[]; known: string[] }
-  | { kind: "no-steps"; type: string }
-  /** Pele cannot read the diagram; Pele itself shows why on the slide. */
-  | { kind: "unreadable" };
+  /** The diagram has nothing steps can name: no ids, or no messages. */
+  | { kind: "no-steps"; type: string; reason: "no-ids" | "no-messages" }
+  /** Pele cannot read or draw the diagram; Pele itself shows why on the slide. */
+  | { kind: "unreadable"; message: string };
 
 export type StepPlan = Plan | StepError;
 
@@ -65,23 +66,24 @@ export const splitSteps = (steps: string): string[][] =>
       .filter((id) => id !== "")
   );
 
-const readModel = (source: string) => {
-  try {
-    return parse(source);
-  } catch {
-    return null;
-  }
-};
+const messageOf = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
 
 export const planSteps = (input: StepPlanInput): StepPlan => {
-  const model = readModel(input.source);
-  if (!model) {
-    return { kind: "unreadable" };
+  let model: ReturnType<typeof parse>;
+  try {
+    model = parse(input.source);
+  } catch (error) {
+    return { kind: "unreadable", message: messageOf(error) };
   }
-  const parts = diagramParts(model);
-  if (!parts) {
-    return { kind: "no-steps", type: model.type };
+  const reading = diagramParts(model);
+  if (reading.kind === "undrawable") {
+    return { kind: "unreadable", message: reading.message };
   }
+  if (reading.kind !== "parts") {
+    return { kind: "no-steps", reason: reading.kind, type: model.type };
+  }
+  const { parts } = reading;
 
   const steps = splitSteps(input.steps);
   const unknown: string[] = [];
@@ -156,12 +158,15 @@ export const describeStepError = (error: StepError): string => {
       return `${label} ${quoted(error.unknown)}. Use the ids of the diagram: ${error.known.join(", ")}.`;
     }
     case "no-steps": {
+      if (error.reason === "no-messages") {
+        return "Steps name a sequence diagram's messages by number, and this one has no messages. Add messages, or remove the {…} steps from the fence.";
+      }
       return error.type === "xychart"
         ? 'Steps are not available for xychart diagrams whose series have no title. Give each series a title (bar "Sales" [10, 50]) and use the titles as step ids, or remove the {…} steps from the fence.'
         : `Steps are not available for ${error.type} diagrams: Pele gives their parts no ids. Remove the {…} steps from the fence.`;
     }
     case "unreadable": {
-      return "The diagram cannot be read, so its steps cannot be applied. Fix the diagram first.";
+      return `Pele cannot draw the diagram, so its steps cannot be applied: ${error.message} Fix the diagram first.`;
     }
     default: {
       return "";

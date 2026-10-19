@@ -10,12 +10,28 @@ export interface Fence {
   options?: string;
   /** Text after the braces that the grammar has no place for. */
   ignored?: string;
+  /** Steps and options written in one pair of braces, e.g. `{a|b, reveal: true}`, read as if they were in two. */
+  joined?: string;
 }
 
 const LANGUAGE = /^[\w'-]*/u;
 // The characters Slidev allows in a code block's line ranges, plus spaces.
 const STEPS = /^\{(?<steps>[\s\w,|*-]*[\w*][\s\w,|*-]*)\}$/u;
 const QUOTES = new Set(["'", '"', "`"]);
+// Steps, a comma, then the options' first key: `{a|b, reveal: true}`.
+const JOINED =
+  /^\{(?<steps>[\s\w,|*-]*?)\s*,\s*(?<options>[$A-Z_a-z][\w$]*\s*:[\s\S]*)\}$/u;
+// What steps hold and a JavaScript object cannot: `a|b`, `*`, `2-3`, `1`.
+const NOT_JAVASCRIPT = /[|*-]|(?:^|,)\s*\d/u;
+
+/** Steps and options in one pair of braces, split as the author meant them. */
+const splitJoined = (group: string) => {
+  const { steps = "", options = "" } = group.match(JOINED)?.groups ?? {};
+  if (!STEPS.test(`{${steps}}`) || !NOT_JAVASCRIPT.test(steps)) {
+    return;
+  }
+  return { options: `{${options}}`, steps: steps.trim() };
+};
 
 /** Reads `{…}` at the start of `text`, skipping braces inside strings. */
 const readGroup = (text: string): string | undefined => {
@@ -59,6 +75,11 @@ export const readFence = (info: string): Fence => {
   rest = rest.slice(first.length).trim();
 
   const steps = first.match(STEPS)?.groups?.steps;
+  const joined = steps === undefined ? splitJoined(first) : undefined;
+  if (joined) {
+    // Vue cannot compile `{a|b, …}` as an object, so it is split here.
+    return withIgnored({ ...fence, ...joined, joined: first }, rest);
+  }
   if (steps === undefined) {
     // A lone `{…}` that is not steps is options, so `{scale: 0.8}` keeps
     // the meaning Slidev gives it.

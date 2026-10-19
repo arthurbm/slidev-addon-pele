@@ -13,7 +13,7 @@ export interface Glide {
   stop: () => void;
 }
 
-/** Sets one frame of a tween, for an eased time from 0 to 1. */
+/** Sets what a tween changes to where it is at an eased time from 0 to 1. */
 type Tween = (time: number) => void;
 
 const NEW_PARTS_DELAY = 0.4;
@@ -32,7 +32,7 @@ const shapeOf = (text: string) => text.replaceAll(NUMBER, "#");
 /**
  * Tweens an attribute made of numbers (a `transform`, a `d`, a `viewBox`)
  * from its value in `from` to its value in `to`, when both have the same
- * shape. The last frame writes Pele's own value back.
+ * shape. At time 1 it writes Pele's own value back.
  */
 const tweenAttribute = (
   to: Element,
@@ -170,7 +170,11 @@ const leaveGhost = (
 };
 
 /** The tweens that take every part from the old drawing to the new one. */
-const plan = (from: SVGSVGElement, to: SVGSVGElement, ghosts: Element[]) => {
+const tweensBetween = (
+  from: SVGSVGElement,
+  to: SVGSVGElement,
+  ghosts: Element[]
+) => {
   const before = partsOf(from);
   const after = partsOf(to);
   const change = changeBetween(before.keys(), after.keys());
@@ -225,7 +229,7 @@ export const glide = (
   duration: number
 ): Glide => {
   const ghosts: Element[] = [];
-  const tweens = plan(from, to, ghosts);
+  const tweens = tweensBetween(from, to, ghosts);
   const draw = (time: number) => {
     for (const tween of tweens) {
       tween(time);
@@ -234,7 +238,7 @@ export const glide = (
   // Every part starts where it was, before the page paints the new drawing.
   draw(0);
 
-  let frame = 0;
+  let request = 0;
   const started = performance.now();
   const tick = (now: number) => {
     const time = clamp((now - started) / Math.max(1, duration));
@@ -246,10 +250,10 @@ export const glide = (
       return;
     }
     draw(ease(time));
-    frame = requestAnimationFrame(tick);
+    request = requestAnimationFrame(tick);
   };
-  frame = requestAnimationFrame(tick);
+  request = requestAnimationFrame(tick);
   return {
-    stop: () => cancelAnimationFrame(frame),
+    stop: () => cancelAnimationFrame(request),
   };
 };

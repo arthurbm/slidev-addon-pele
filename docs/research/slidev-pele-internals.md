@@ -12,6 +12,10 @@ Facts read from source, pinned to **Slidev v53.0.0** (`slidevjs/slidev@73053ab`)
 
 **Click registration (the model for steps).** Code blocks register `ranges.length - 1` clicks starting at `at`, and the active range index is `max(0, current - start + 1)`, so the first range is active before any click: `packages/client/builtin/CodeBlockWrapper.vue:72-75`. Use `useSlideContext().$clicksContext`; unregister on unmount.
 
+**Slide background.** No CSS variable carries it. The slide is painted with the Uno shortcut `bg-main` (`bg-white dark:bg-[#121212]`) on `.slidev-slide-content`: `packages/client/uno.config.ts:21`, `packages/client/internals/SlideContainer.vue:138`. Themes, a deck's CSS and layouts with a `background` paint `.slidev-layout` or an element inside it. `--slidev-slide-container-background` is the letterbox around the slide (black), not the slide. So the `auto` preset reads the computed `background-color` of the nearest painted ancestor.
+
+**Shared presenter state.** Every page sends its slide and click to the dev server and follows the last page of the other kind (presenter or viewer) that sent one, unless `slidev-sync-directions` in localStorage turns that off: `packages/client/setup/root.ts:63-110`, `packages/client/state/storage.ts:109`. A reused server remembers where earlier pages were.
+
 **Public client API.** `useDarkMode`, `useSlideContext` and friends are exported from `@slidev/client`: `packages/client/index.ts:7,11`. Other client files are internal and may break.
 
 **Export waiting.** The exporter waits, per slide, for every `[data-waitfor]` element to contain a visible match of the attribute's selector: `packages/slidev/node/commands/export.ts:272-285`. It also waits for `#mermaid-rendering-container` to empty (line 294), which only mermaid.js uses.

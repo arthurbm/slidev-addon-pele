@@ -1,9 +1,7 @@
-import { load } from "pele/lazy";
 import { describe, expect, it } from "vitest";
 
-import { readDiagramBlock } from "../src/diagram-block";
-import { describeStepError, partsAt, planSteps } from "../src/step-plan";
-import type { PartStates, StepMode } from "../src/step-plan";
+import { readFencedBlock } from "../src/fenced-block";
+import { diagram, walk } from "./blocks";
 
 // The tool-call loop from the Showcase deck.
 const loop = `flowchart LR
@@ -14,27 +12,22 @@ const loop = `flowchart LR
   tools --> agent
 `;
 
-// Pele parses only the diagram types loaded, as in a deck.
-await load("flowchart");
-
 describe("steps in the fence", () => {
-  it("reads the steps of a diagram block like code line highlighting", () => {
-    const block = readDiagramBlock({
-      body: loop,
-      fence: "mermaid {user|agent,llm|tools|*}",
-    });
+  it("reads the steps of a diagram block like code line highlighting", async () => {
+    const block = await diagram("mermaid {user|agent,llm|tools|*}", loop);
 
     expect(block).toMatchObject({
+      clicks: 3,
       renderer: "pele",
       steps: "user|agent,llm|tools|*",
     });
   });
 
-  it("reads steps followed by options", () => {
-    const block = readDiagramBlock({
-      body: loop,
-      fence: "mermaid {user | agent}{reveal: true, at: 1}",
-    });
+  it("reads steps followed by options", async () => {
+    const block = await diagram(
+      "mermaid {user | agent}{reveal: true, at: 1}",
+      loop
+    );
 
     expect(block).toMatchObject({
       options: "{reveal: true, at: 1}",
@@ -42,35 +35,18 @@ describe("steps in the fence", () => {
     });
   });
 
-  it("keeps a lone options object as options, not steps", () => {
-    const block = readDiagramBlock({
-      body: loop,
-      fence: "mermaid {scale: 0.8}",
-    });
+  it("keeps a lone options object as options, not steps", async () => {
+    const block = await diagram("mermaid {scale: 0.8}", loop);
 
-    expect(block).toMatchObject({ options: "{scale: 0.8}" });
+    expect(block).toMatchObject({ clicks: 0, options: "{scale: 0.8}" });
     expect(block).not.toHaveProperty("steps");
+    expect(block.partsAt(0)).toBeUndefined();
   });
 });
 
-/** The state of every part at each step, as the audience sees it. */
-const walk = (fence: string, body: string, mode: StepMode = "focus") => {
-  const block = readDiagramBlock({ body, fence });
-  if (block.renderer !== "pele" || !block.steps) {
-    throw new Error(`no steps in "${fence}"`);
-  }
-  const plan = planSteps({ mode, source: block.source, steps: block.steps });
-  if (plan.kind !== "plan") {
-    return plan;
-  }
-  return Array.from({ length: plan.stepCount }, (_, index) =>
-    partsAt(plan, index)
-  );
-};
-
 describe("focus mode", () => {
-  it("emphasises the step's nodes and lets the rest recede", () => {
-    const [first] = walk("mermaid {user|agent}", loop) as PartStates[];
+  it("emphasises the step's nodes and lets the rest recede", async () => {
+    const [first] = await walk("mermaid {user|agent}", loop);
 
     expect(first?.active).toStrictEqual(["user"]);
     expect(first?.receding).toStrictEqual(
@@ -80,8 +56,8 @@ describe("focus mode", () => {
     expect(first?.hidden).toStrictEqual([]);
   });
 
-  it("joins ids with a comma and gives each later step its own click", () => {
-    const states = walk("mermaid {user|agent,llm|tools}", loop) as PartStates[];
+  it("joins ids with a comma and gives each later step its own click", async () => {
+    const states = await walk("mermaid {user|agent,llm|tools}", loop);
 
     expect(states).toHaveLength(3);
     expect(states[1]?.active).toStrictEqual(
@@ -91,8 +67,8 @@ describe("focus mode", () => {
     expect(states[2]?.active).toContain("tools");
   });
 
-  it("activates the whole diagram with *", () => {
-    const [, last] = walk("mermaid {user|*}", loop) as PartStates[];
+  it("activates the whole diagram with *", async () => {
+    const [, last] = await walk("mermaid {user|*}", loop);
 
     expect(last?.active).toStrictEqual(
       expect.arrayContaining([
@@ -106,11 +82,11 @@ describe("focus mode", () => {
     expect(last?.receding).toStrictEqual([]);
   });
 
-  it("activates an edge once both of its ends are active", () => {
-    const [user, userAndAgent, agentAndLlm] = walk(
+  it("activates an edge once both of its ends are active", async () => {
+    const [user, userAndAgent, agentAndLlm] = await walk(
       "mermaid {user|user,agent|agent,llm}",
       loop
-    ) as PartStates[];
+    );
 
     expect(user?.receding).toContain("L_user_agent_0");
     expect(userAndAgent?.active).toContain("L_user_agent_0");
@@ -121,15 +97,12 @@ describe("focus mode", () => {
     expect(agentAndLlm?.receding).toContain("L_user_agent_0");
   });
 
-  it("lets a named edge in the steps follow its own step", () => {
+  it("lets a named edge in the steps follow its own step", async () => {
     const named = `flowchart LR
   user[User] e1@--> agent[Agent]
   agent e2@--> tools[Tools]
 `;
-    const [ends, edge] = walk(
-      "mermaid {user,agent,tools|e1}",
-      named
-    ) as PartStates[];
+    const [ends, edge] = await walk("mermaid {user,agent,tools|e1}", named);
 
     // e1 waits for its step; e2 is not in the steps, so it follows its ends.
     expect(ends?.receding).toContain("e1");
@@ -137,27 +110,35 @@ describe("focus mode", () => {
     expect(edge?.active).toStrictEqual(["e1"]);
   });
 
-  it("stays on the last step past the end", () => {
-    const plan = planSteps({
-      mode: "focus",
-      source: loop,
-      steps: "user|tools",
-    });
-    if (plan.kind !== "plan") {
-      throw new Error(plan.kind);
-    }
+  it("stays on the last step past the end", async () => {
+    const block = await diagram("mermaid {user|tools}", loop);
 
-    expect(partsAt(plan, 5).active).toStrictEqual(["tools"]);
+    expect(block.partsAt(5)?.active).toStrictEqual(["tools"]);
+  });
+});
+
+describe("the clicks a block's steps land on", () => {
+  it("lands its second step on the click `at` names", async () => {
+    const block = await diagram("mermaid {user|agent|tools}{at: 3}", loop);
+    const active = [0, 2, 3, 4].map((click) => block.partsAt(click)?.active);
+
+    expect(active).toStrictEqual([["user"], ["user"], ["agent"], ["tools"]]);
+  });
+
+  it("shows the last step and takes no clicks with `at: false`", async () => {
+    const block = await diagram("mermaid {user|tools}{at: false}", loop);
+
+    expect(block.clicks).toBe(0);
+    expect(block.partsAt(0)?.active).toStrictEqual(["tools"]);
   });
 });
 
 describe("reveal mode", () => {
-  it("hides parts until their step and keeps earlier steps visible", () => {
-    const [first, second, last] = walk(
-      "mermaid {user|agent|*}",
-      loop,
-      "reveal"
-    ) as PartStates[];
+  it("hides parts until their step and keeps earlier steps visible", async () => {
+    const [first, second, last] = await walk(
+      "mermaid {user|agent|*}{reveal: true}",
+      loop
+    );
 
     expect(first?.active).toStrictEqual(["user"]);
     expect(first?.hidden).toStrictEqual(
@@ -172,15 +153,14 @@ describe("reveal mode", () => {
     expect(last?.hidden).toStrictEqual([]);
   });
 
-  it("keeps a named edge hidden until its own step", () => {
+  it("keeps a named edge hidden until its own step", async () => {
     const named = `flowchart LR
   query[Query] q@--> retrieve[Retrieve]
 `;
-    const [ends, edge] = walk(
-      "mermaid {query,retrieve|q}",
-      named,
-      "reveal"
-    ) as PartStates[];
+    const [ends, edge] = await walk(
+      "mermaid {query,retrieve|q}{reveal: true}",
+      named
+    );
 
     expect(ends?.hidden).toStrictEqual(["q"]);
     expect(edge?.hidden).toStrictEqual([]);
@@ -188,23 +168,40 @@ describe("reveal mode", () => {
 });
 
 describe("unknown step ids", () => {
-  it("is an error that lists the known ids", () => {
+  it("is an error that lists the known ids", async () => {
     const named = `flowchart LR
   user[User] e1@--> agent[Agent]
   agent --> tools[Tools]
 `;
-    const plan = walk("mermaid {usr|agent,tool|*}", named);
+    const block = await diagram("mermaid {usr|agent,tool|*}", named);
 
-    expect(plan).toStrictEqual({
-      kind: "unknown-ids",
-      known: ["user", "agent", "tools", "e1"],
-      unknown: ["usr", "tool"],
+    expect(block.errors).toStrictEqual([
+      '[pele] Unknown step ids "usr", "tool". Use the ids of the diagram: user, agent, tools, e1.',
+    ]);
+    expect(block.partsAt(0)).toBeUndefined();
+  });
+
+  it("names the file and slide when it knows them", async () => {
+    const block = await readFencedBlock({
+      body: "flowchart LR\n  a --> b\n",
+      fence: "mermaid {a|x}",
+      where: "slides.md, slide 3",
     });
-    if (Array.isArray(plan)) {
-      return;
-    }
-    expect(describeStepError(plan)).toBe(
-      'Unknown step ids "usr", "tool". Use the ids of the diagram: user, agent, tools, e1.'
+
+    expect(block).toMatchObject({
+      errors: [
+        '[pele] slides.md, slide 3: Unknown step id "x". Use the ids of the diagram: a, b.',
+      ],
+    });
+  });
+
+  it("is left to Pele's own message when the diagram cannot be read", async () => {
+    const block = await diagram(
+      "mermaid {a|b}",
+      "flowchart LR\n  a --> b\n  b -->> [x\n"
     );
+
+    expect(block.errors).toStrictEqual([]);
+    expect(block.partsAt(0)).toBeUndefined();
   });
 });

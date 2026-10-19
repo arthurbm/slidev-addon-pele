@@ -145,18 +145,23 @@ flowchart LR
 `````
 
 - Keep a part's id the same across versions (`bot` above) so it glides rather than fading out and back in.
-- As in Slidev, `{at: 2}` and `{duration: 1200}` go on the outer fence (` ````md magic-move {at: 2} `), and `magicMoveDuration` in the headmatter sets the default duration. Line ranges and the `[title]` have no effect on diagrams.
+- As in Slidev, options go on the outer fence (` ````md magic-move {at: 2} `); `lines`, any other key and a `[title]` have no effect on diagrams and give a `[pele]` warning.
 - Every version uses the deck's preset (`pele.theme`). Steps and options on a version are ignored with a `[pele]` warning: step through a diagram on a slide of its own.
 - Flowchart versions all keep one direction, so no version flips to top-to-bottom on its own in a narrow column.
 - The addon takes over the fence only when every version is a diagram block it would draw. If one version is handed back to mermaid.js (`renderer: 'mermaid'`, the deck's opt-out, ZenUML) or is not a diagram block at all, the whole fence is left to Slidev's magic-move, which shows it as code.
 - Viewers who prefer reduced motion see each version swap in at once. Export draws each version at rest: the last one, or one page per version with `--with-clicks`.
 
+| option     | values                                                                                            | default                                    |
+| ---------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `at`       | the click the second version lands on, as for Slidev's magic-move; `false` shows the last version | `'+1'`                                     |
+| `duration` | how long the glide to the next version takes, in milliseconds                                     | the headmatter's `magicMoveDuration` (800) |
+
 ## Presets
 
 A **preset** is a named set of diagram colours:
 
-- `auto` (the default) follows the Slidev theme: the slide's text colour for text and lines, tints of it for fills, the theme's primary colour as the accent, and Slidev's page background.
-- `flexoki` uses the [Flexoki](https://stephango.com/flexoki) palette and draws the diagram as a card.
+- `auto` (the default) follows the Slidev theme: the slide's text colour for text and lines, tints of it for fills, the theme's primary colour as the accent, and the background painted behind the diagram, whether it comes from the Slidev theme, the deck's CSS or the slide's `background`.
+- `flexoki` uses the colours of [Flexoki](https://stephango.com/flexoki) and draws the diagram as a card.
 
 Both follow Slidev's dark mode live, without drawing the diagram again. Choose one for the deck with `pele: { theme: flexoki }` in the headmatter, or for one block with `{theme: 'flexoki'}`. Mermaid's theme names work too and map to the nearest preset: `default` and `base` to `auto`, `neutral` to `auto` in greys, `dark` to `auto` forced dark, and `forest` to `auto` with a warning.
 
@@ -173,7 +178,7 @@ html.dark .pele-diagram {
 }
 ```
 
-The variables are `--pele-bg`, `--pele-fg`, `--pele-muted`, `--pele-line`, `--pele-surface`, `--pele-surface-alt`, `--pele-border`, `--pele-accent`, `--pele-critical`, `--pele-error`, `--pele-font`, `--pele-font-mono`, `--pele-radius` and `--pele-series-1` to `--pele-series-8`; [the theming reference](skills/slidev-addon-pele/references/theming.md) says what each colours. Parts of a stepping diagram carry `pele-step-active`, `pele-step-receding` or `pele-step-hidden`, if you want to restyle steps.
+The variables are `--pele-bg`, `--pele-fg`, `--pele-muted`, `--pele-line`, `--pele-surface`, `--pele-surface-alt`, `--pele-border`, `--pele-accent`, `--pele-critical`, `--pele-error`, `--pele-font`, `--pele-font-mono`, `--pele-radius` and `--pele-series-1` to `--pele-series-8`; [the presets reference](skills/slidev-addon-pele/references/presets.md) says what each colours. Parts of a stepping diagram carry `pele-step-active`, `pele-step-receding` or `pele-step-hidden`, if you want to restyle steps.
 
 ## Animated edges
 
@@ -193,7 +198,7 @@ flowchart LR
 
 ## Options
 
-Options go in braces after the steps, or alone: ` ```mermaid {a|b}{reveal: true, scale: 0.8} `. As in Slidev, the braces are a JavaScript object; quote strings with single quotes (`{theme: 'dark'}`), since a double quote ends the attribute Slidev writes them into and breaks the slide. Any other key prints a `[pele]` warning.
+Options go in braces after the steps, or alone: ` ```mermaid {a|b}{reveal: true, scale: 0.8} `. As in Slidev, the braces are a JavaScript object; quote strings with single quotes (`{theme: 'dark'}`), since a double quote ends the attribute Slidev writes them into and breaks the slide. Any other key prints a `[pele]` warning, and so do `reveal` and `at` on a block without steps. Steps and options each take their own braces: `{a|b, reveal: true}` is read as `{a|b}{reveal: true}`, with a warning.
 
 | option     | values                                                                                                      | default                                |
 | ---------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------- |
@@ -203,7 +208,7 @@ Options go in braces after the steps, or alone: ` ```mermaid {a|b}{reveal: true,
 | `renderer` | `'mermaid'` to draw this block with mermaid.js; `'pele'` to draw it with Pele when the deck opts out        | Pele                                   |
 | `at`       | the click the second step lands on, as `at` on Slidev code blocks: a number is absolute, `'+n'` is relative | `'+1'`                                 |
 
-Deck settings go under `pele` in the headmatter:
+Deck settings go under `pele` in the headmatter; any other key prints a `[pele]` warning:
 
 | setting        | values                                                                                   |
 | -------------- | ---------------------------------------------------------------------------------------- |
