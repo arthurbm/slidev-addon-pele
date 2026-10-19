@@ -1,6 +1,6 @@
 # Options
 
-A diagram block's options go in the braces after its steps (or alone): ` ```mermaid {a|b}{reveal: true, scale: 0.8} `. As in Slidev, the braces are a JavaScript object; write literal values, since the addon checks only those (a `theme` computed in the slide is not read, so the deck's applies). Any other key gives a `[pele]` warning listing these.
+A diagram block's options go in the braces after its steps (or alone): ` ```mermaid {a|b}{reveal: true, scale: 0.8} `. As in Slidev, the braces are a JavaScript object written into a double-quoted attribute, so quote strings with single quotes (`{theme: 'dark'}`); a double quote breaks the slide. Write literal values: the addon checks only those, and a `theme` computed in the slide is not read, so the deck's applies. Any other key gives a `[pele]` warning listing these.
 
 ## `scale`
 

@@ -193,7 +193,7 @@ flowchart LR
 
 ## Options
 
-Options go in braces after the steps, or alone: ` ```mermaid {a|b}{reveal: true, scale: 0.8} `. As in Slidev, the braces are a JavaScript object. Any other key prints a `[pele]` warning.
+Options go in braces after the steps, or alone: ` ```mermaid {a|b}{reveal: true, scale: 0.8} `. As in Slidev, the braces are a JavaScript object; quote strings with single quotes (`{theme: 'dark'}`), since a double quote ends the attribute Slidev writes them into and breaks the slide. Any other key prints a `[pele]` warning.
 
 | option     | values                                                                                                      | default                                |
 | ---------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------- |
