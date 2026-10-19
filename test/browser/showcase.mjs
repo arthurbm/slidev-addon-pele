@@ -77,6 +77,74 @@ const openAliasedSlide = (path) => {
   browser("wait", "300");
 };
 
+/** Waits until a function run in the page returns something truthy. */
+const waitFor = (fn, argument) =>
+  browser("wait", "--fn", `(${fn})(${JSON.stringify(argument)})`);
+
+/**
+ * Cuts this browser off from the deck's shared presenter state. Slidev sends
+ * every page's slide and click through the dev server, and a page follows the
+ * last one another page sent: the presenter view would jump to where an
+ * earlier check (or a person, on a reused server) left a viewer, and viewers
+ * to where the presenter was. The setting persists in localStorage.
+ */
+const isolateFromSharedState = () => {
+  browser("open", `${deckUrl}/1`);
+  inPage(() => {
+    localStorage.setItem(
+      "slidev-sync-directions",
+      JSON.stringify({
+        presenterReceive: false,
+        presenterSend: false,
+        viewerReceive: false,
+        viewerSend: false,
+      })
+    );
+    return true;
+  });
+};
+
+/**
+ * Whether the presenter view is at a click and shows, on its current slide
+ * and on the next-click preview, the nodes expected (those matching
+ * `selector` in each).
+ */
+const presenterShows = ({ clicks, selector, nodes }) => {
+  const nav = window.__slidev__?.nav;
+  if (nav?.clicks !== clicks) {
+    return false;
+  }
+  const shown = [
+    ...document.querySelectorAll(
+      `.slidev-presenter .slidev-page-${nav.currentSlideNo}`
+    ),
+  ].map((page) =>
+    [
+      ...new Set(
+        [...page.querySelectorAll(`.pele-diagram svg ${selector}`)].map(
+          (node) => node.dataset.id
+        )
+      ),
+    ]
+      .toSorted()
+      .join(",")
+  );
+  const expected = nodes.map((ids) => [...ids].toSorted().join(","));
+  return JSON.stringify(shown) === JSON.stringify(expected);
+};
+
+/**
+ * Waits for the presenter view to show what is expected; if it never does,
+ * the check's assertions say what it shows instead.
+ */
+const waitForPresenter = (expected) => {
+  try {
+    waitFor(presenterShows, expected);
+  } catch {
+    // Reported by the assertions that follow.
+  }
+};
+
 /** Sets Slidev's colour mode, which persists in localStorage, and reloads. */
 const useColorSchema = (schema) => {
   inPage((value) => {
@@ -97,6 +165,8 @@ const readColors = (alias) =>
         background: getComputedStyle(svg).getPropertyValue("--_bg").trim(),
         dark: document.documentElement.classList.contains("dark"),
         sameSvg,
+        // What the slide itself is painted with, behind the diagram.
+        slide: getComputedStyle(svg.closest(".slidev-layout")).backgroundColor,
       };
     }
   );
@@ -419,8 +489,12 @@ const stepChecks = [
     "presenter view shows the current step and the next click's step",
     () => {
       browser("open", `${deckUrl}/presenter/tool-loop?clicks=1`);
-      browser("wait", ".slidev-presenter .pele-step-active");
-      browser("wait", "500");
+      // Until `?clicks=1` has taken effect on the slide and its preview.
+      waitForPresenter({
+        clicks: 1,
+        nodes: [toolLoopSteps[1].nodes, toolLoopSteps[2].nodes],
+        selector: ".pele-node.pele-step-active[data-id]",
+      });
       const [current, next] = inPage(readSteps, ".slidev-presenter");
       assert(
         current && next,
@@ -610,10 +684,11 @@ const checks = [
       openAliasedSlide("dark-mode");
       const [auto, flexoki] = inPage(readColors, "dark-mode");
       assert(auto && flexoki, "expected two diagrams on the dark-mode slide");
+      // The deck paints its slides with paper (#faf7f0) and sets no
+      // background for diagrams: auto finds the paper on its own.
       assert(
-        // The deck's own CSS paints the auto preset in its paper palette.
-        auto.background === "#faf7f0",
-        `auto should draw on the deck's #faf7f0 paper in light mode, got ${auto.background}`
+        auto.slide === "rgb(250, 247, 240)" && auto.background === auto.slide,
+        `auto should draw on the slide's paper, rgb(250, 247, 240), got ${auto.background} on ${auto.slide}`
       );
       assert(
         flexoki.background === "#fffcf0",
@@ -646,6 +721,10 @@ const checks = [
           `diagram ${index + 1} kept its colours: ${diagram.background}`
         );
       }
+      assert(
+        dark[0]?.background === dark[0]?.slide,
+        `auto should draw on the slide's dark paper, ${dark[0]?.slide}, got ${dark[0]?.background}`
+      );
       assert(
         dark[1]?.background === "#100f0f",
         `flexoki should draw on #100f0f in dark mode, got ${dark[1]?.background}`
@@ -814,23 +893,23 @@ const assertVersion = (diagram, index) =>
     `version ${index + 1} at ${diagram?.url}`
   );
 
-/** Records the model node's `transform` on every frame for a while. */
+/** Records the model node's `transform` at every repaint for a while. */
 const recordBot = (milliseconds) => {
-  window.peleBotFrames = [];
+  window.peleBotPlaces = [];
   const started = performance.now();
-  const frame = () => {
+  const sample = () => {
     const no = window.__slidev__.nav.currentSlideNo;
     const bot = [
       ...document.querySelectorAll(
         `.slidev-page-${no} .pele-diagram .pele-node`
       ),
     ].find((node) => node.dataset.id === "model");
-    window.peleBotFrames.push(bot?.getAttribute("transform"));
+    window.peleBotPlaces.push(bot?.getAttribute("transform"));
     if (performance.now() - started < milliseconds) {
-      requestAnimationFrame(frame);
+      requestAnimationFrame(sample);
     }
   };
-  requestAnimationFrame(frame);
+  requestAnimationFrame(sample);
   return true;
 };
 
@@ -840,7 +919,7 @@ const botPositionsToLastVersion = () => {
   inPage(recordBot, 1500);
   browser("press", "ArrowRight");
   browser("wait", "1700");
-  return inPage(() => [...new Set(window.peleBotFrames)]);
+  return inPage(() => [...new Set(window.peleBotPlaces)]);
 };
 
 const magicMoveChecks = [
@@ -925,8 +1004,11 @@ const magicMoveChecks = [
     "presenter view shows the current version and the next click's",
     () => {
       browser("open", `${deckUrl}/presenter/magic-move?clicks=1`);
-      browser("wait", ".slidev-presenter .magic-move svg.pele");
-      browser("wait", "1000");
+      waitForPresenter({
+        clicks: 1,
+        nodes: [botVersions[1], botVersions[2]],
+        selector: ".pele-node[data-id]",
+      });
       const [current, next] = inPage(readVersions, ".slidev-presenter");
       assertVersion(current, 1);
       assertVersion(next, 2);
@@ -945,6 +1027,7 @@ const server = process.env.PELE_DECK_URL
 let failures = 0;
 try {
   await waitForDeck();
+  isolateFromSharedState();
   for (const [name, check] of [
     ...deckChecks,
     ...checks,

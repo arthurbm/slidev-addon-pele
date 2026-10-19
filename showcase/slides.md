@@ -124,7 +124,7 @@ flowchart TB
 ```
 
 <!--
-The hook. Same Mermaid source on both sides; only the renderer changes. Pele's drawing picks up the deck's fonts and paper palette from CSS variables.
+The hook. Same Mermaid source on both sides; only the renderer changes. Pele's drawing picks up the deck's fonts and paper colours from CSS variables.
 -->
 
 ---
@@ -260,7 +260,7 @@ class: rag-reveal
 
 # RAG, built up click by click
 
-<div class="stage">
+<div class="centrepiece">
 
 ```mermaid {docs,chunks|space|question|topk}{reveal: true}
 flowchart LR
@@ -287,7 +287,7 @@ class: sequence-steps
 
 # A tool call, message by message
 
-<div class="stage">
+<div class="centrepiece">
 
 ```mermaid {1|2-3|4-5|6-7|8|*}{scale: 0.72}
 sequenceDiagram
@@ -318,7 +318,7 @@ class: magic-move
 
 # A bot, growing click by click
 
-<div class="stage">
+<div class="centrepiece">
 
 ````md magic-move
 ```mermaid
@@ -509,7 +509,7 @@ class: animated-edges
 
 # Animated edges
 
-<div class="stage">
+<div class="centrepiece">
 
 ```mermaid
 flowchart LR

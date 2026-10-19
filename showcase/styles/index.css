@@ -1,8 +1,9 @@
 /*
- * The Showcase deck's "paper" look: the palette and type of the maintainer's
+ * The Showcase deck's "paper" look: the colours and type of the maintainer's
  * Gen AI deck (warm off-white paper, graphite ink, one terracotta stamp),
  * applied with plain CSS over Slidev's default theme. Diagrams take it through
- * Pele's --pele-* variables: no preset involved.
+ * Pele's --pele-* variables, set over the auto preset, which already draws
+ * on the paper.
  *
  * The Gen AI deck is light only; the dark "ink" values below are this deck's
  * own, so the dark-mode slide has something to switch to.
@@ -188,12 +189,12 @@ body,
   color: inherit;
 }
 
-/* --- diagrams in the paper palette --------------------------------------- */
+/* --- diagrams on paper, in ink ------------------------------------------ */
 
 /* The default preset (auto) only; a block that names another preset, like
-   the dark-mode slide's flexoki block, keeps it. */
+   the dark-mode slide's flexoki block, keeps it. The background needs no
+   rule: auto takes the paper the slide is painted with. */
 .pele-diagram[data-pele-preset="auto"][data-pele-tone="none"] {
-  --pele-bg: var(--paper);
   --pele-fg: var(--ink);
   --pele-muted: var(--ink-3);
   --pele-line: var(--ink-2);
@@ -216,18 +217,18 @@ body,
 
 /* A slide that is mostly one diagram: the diagram sits centred in the room
    left under the title, with its note below. */
-.stage {
+.centrepiece {
   display: flex;
   flex-direction: column;
   justify-content: center;
   min-height: 19rem;
 }
 
-.stage svg.pele {
+.centrepiece svg.pele {
   display: block;
   margin-inline: auto;
 }
 
-.stage + .note {
+.centrepiece + .note {
   text-align: center;
 }
