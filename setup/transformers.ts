@@ -17,7 +17,12 @@ const diagramBlock: CodeblockTransformer = ({ info, code, options }) => {
   if (block.renderer !== "pele") {
     return null;
   }
-  return `<PeleDiagram source="${encodeSource(block.source)}" />`;
+  for (const warning of block.warnings) {
+    console.warn(warning);
+  }
+  const { name, tone } = block.preset;
+  const toneProp = tone ? ` tone="${tone}"` : "";
+  return `<PeleDiagram source="${encodeSource(block.source)}" preset="${name}"${toneProp} />`;
 };
 
 // A plain function instead of `defineTransformersSetup`, so the addon needs no

@@ -1,3 +1,6 @@
+import { readPreset } from "./preset";
+import type { Preset } from "./preset";
+
 /** What an author writes for one fenced block in a slide. */
 export interface DiagramBlockInput {
   /** The fence's opening line after the backticks, e.g. `mermaid {scale: 0.8}`. */
@@ -13,16 +16,33 @@ export interface DiagramBlockInput {
  * Slidev (which draws ```mermaid with mermaid.js and anything else as code).
  */
 export type DiagramBlock =
-  | { renderer: "pele"; source: string }
+  | { renderer: "pele"; source: string; preset: Preset; warnings: string[] }
   | { renderer: "slidev" };
 
 const DIAGRAM_LANGUAGES = new Set(["mermaid", "pele"]);
 const LANGUAGE = /^[\w'-]*/u;
+
+// Stand-in for the fence reader (ticket #3): finds a string `theme` in the
+// block's options, e.g. `mermaid {theme: 'neutral', scale: 0.8}`.
+const THEME_OPTION = /\btheme\s*:\s*(?<quote>['"`])(?<theme>.*?)\k<quote>/u;
+const readThemeOption = (fence: string): string | undefined =>
+  fence.match(THEME_OPTION)?.groups?.theme;
+
+/** The deck settings under `pele` in the headmatter. */
+const readDeckSettings = (headmatter: Record<string, unknown> = {}) => {
+  const { pele } = headmatter;
+  return typeof pele === "object" && pele !== null
+    ? (pele as Record<string, unknown>)
+    : {};
+};
 
 export const readDiagramBlock = (input: DiagramBlockInput): DiagramBlock => {
   const [language = ""] = input.fence.trim().match(LANGUAGE) ?? [];
   if (!DIAGRAM_LANGUAGES.has(language)) {
     return { renderer: "slidev" };
   }
-  return { renderer: "pele", source: input.body.trim() };
+  const { preset, warnings } = readPreset(
+    readThemeOption(input.fence) ?? readDeckSettings(input.headmatter).theme
+  );
+  return { preset, renderer: "pele", source: input.body.trim(), warnings };
 };
