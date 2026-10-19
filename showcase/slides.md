@@ -162,7 +162,7 @@ addons:
 <div class="caption">install</div>
 
 ```bash
-npm i slidev-addon-pele
+npm install slidev-addon-pele
 ```
 
 <div class="note">
@@ -1113,7 +1113,7 @@ class: closing
 
 <div class="closing">
 
-<div class="fence">npm i slidev-addon-pele</div>
+<div class="fence">npm install slidev-addon-pele</div>
 
 <h1 class="closing__title">Write Mermaid. Get Pele.</h1>
 
