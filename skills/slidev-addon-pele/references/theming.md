@@ -47,10 +47,12 @@ Mermaid's `style` and `classDef` lines still apply, with fixed colours that do n
 
 ## Restyling steps
 
-Each part of a stepping diagram carries one class at each click: `pele-step-active`, `pele-step-receding` (focus mode, drawn at 20% opacity) or `pele-step-hidden` (reveal mode). To change how a step looks, style those classes inside `.pele-diagram`; in a slide's scoped `<style>`, reach the drawing with `:deep()`:
+Each part of a stepping diagram carries one class at each click: `pele-step-active`, `pele-step-receding` (focus mode, drawn at 20% opacity) or `pele-step-hidden` (reveal mode). To change how a step looks, style those classes under `.pele-diagram.pele-steps` in the deck's `style.css`:
 
 ```css
-.pele-diagram :deep(.pele-step-receding) {
+.pele-diagram.pele-steps .pele-step-receding {
   opacity: 0.4;
 }
 ```
+
+In a slide's scoped `<style>`, reach the drawing with `:deep()`: `.pele-diagram :deep(.pele-step-receding) { opacity: 0.4; }`.
