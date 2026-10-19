@@ -76,8 +76,10 @@ const openSlide = (slide) => {
  * Opens a slide by its `routeAlias` (slide numbers shift as the deck grows)
  * and waits until its diagrams are drawn. The slide's `class` scopes queries.
  */
-const openAliasedSlide = (alias) => {
-  browser("open", `${deckUrl}/${alias}`);
+const openAliasedSlide = (path) => {
+  // The alias may carry a click, as in `magic-move?clicks=2`.
+  const [alias] = path.split("?");
+  browser("open", `${deckUrl}/${path}`);
   browser("wait", `.${alias} .pele-diagram svg`);
   inPage(async () => {
     await document.fonts.ready;
@@ -605,6 +607,160 @@ const checks = [
   ],
 ];
 
+// The bot on the magic-move slide: its nodes in each version.
+const botVersions = [
+  ["bot", "user"],
+  ["bot", "llm", "user"],
+  ["bot", "llm", "tools", "user"],
+  ["bot", "llm", "memory", "tools", "user"],
+];
+
+/** The nodes each magic-move diagram on the current slide draws. */
+const readVersions = (scope) => {
+  const no = window.__slidev__.nav.currentSlideNo;
+  return [
+    ...document.querySelectorAll(`${scope ?? ""} .slidev-page-${no}`),
+  ].flatMap((page) =>
+    [...page.querySelectorAll(".pele-diagram")].map((diagram) => ({
+      nodes: [
+        ...new Set(
+          [...diagram.querySelectorAll("svg .pele-node[data-id]")].map(
+            (node) => node.dataset.id
+          )
+        ),
+      ].toSorted(),
+      url: location.pathname + location.search,
+    }))
+  );
+};
+
+const assertVersion = (diagram, index) =>
+  assertParts(
+    diagram?.nodes ?? [],
+    botVersions[index],
+    `version ${index + 1} at ${diagram?.url}`
+  );
+
+/** Records the bot node's `transform` on every frame for a while. */
+const recordBot = (milliseconds) => {
+  window.peleBotFrames = [];
+  const started = performance.now();
+  const frame = () => {
+    const no = window.__slidev__.nav.currentSlideNo;
+    const bot = [
+      ...document.querySelectorAll(
+        `.slidev-page-${no} .pele-diagram .pele-node`
+      ),
+    ].find((node) => node.dataset.id === "bot");
+    window.peleBotFrames.push(bot?.getAttribute("transform"));
+    if (performance.now() - started < milliseconds) {
+      requestAnimationFrame(frame);
+    }
+  };
+  requestAnimationFrame(frame);
+  return true;
+};
+
+/** The bot's distinct positions while moving from version 3 to version 4. */
+const botPositionsToLastVersion = () => {
+  openAliasedSlide("magic-move?clicks=2");
+  inPage(recordBot, 1500);
+  browser("press", "ArrowRight");
+  browser("wait", "1700");
+  return inPage(() => [...new Set(window.peleBotFrames)]);
+};
+
+const magicMoveChecks = [
+  [
+    "→ and ← move a magic-move through its versions",
+    () => {
+      openAliasedSlide("magic-move");
+      const forward = [inPage(readVersions)[0]];
+      for (let click = 1; click < botVersions.length; click += 1) {
+        browser("press", "ArrowRight");
+        browser("wait", "1000");
+        forward.push(inPage(readVersions)[0]);
+      }
+      for (const [index, diagram] of forward.entries()) {
+        assertVersion(diagram, index);
+      }
+      browser("press", "ArrowLeft");
+      browser("wait", "1000");
+      assertVersion(inPage(readVersions)[0], botVersions.length - 2);
+    },
+  ],
+  [
+    "nodes glide between versions",
+    () => {
+      const positions = botPositionsToLastVersion();
+      // From version 3's place to version 4's, through places in between.
+      assert(
+        positions.length > 4,
+        `the bot jumped instead of gliding: ${positions.join(" → ")}`
+      );
+    },
+  ],
+  [
+    "reduced motion swaps versions without a glide",
+    () => {
+      browser("set", "media", "light", "reduced-motion");
+      try {
+        const positions = botPositionsToLastVersion();
+        assert(
+          positions.length === 2,
+          `expected the bot at two places only, got ${positions.join(" → ")}`
+        );
+      } finally {
+        browser("set", "media", "light");
+      }
+    },
+  ],
+  [
+    "going back to a magic-move and the overview show its last version",
+    () => {
+      openAliasedSlide("magic-move");
+      browser("press", "ArrowRight");
+      browser("press", "ArrowRight");
+      browser("press", "ArrowRight");
+      // On to the next slide, then back.
+      browser("press", "ArrowRight");
+      browser("wait", "1000");
+      browser("press", "ArrowLeft");
+      browser("wait", "1000");
+      assertVersion(inPage(readVersions)[0], botVersions.length - 1);
+
+      browser("open", `${deckUrl}/overview`);
+      browser(
+        "wait",
+        "--fn",
+        "!!document.querySelector('.magic-move svg.pele')"
+      );
+      browser("wait", "500");
+      const overview = inPage(() =>
+        [...document.querySelectorAll(".magic-move .pele-node[data-id]")].map(
+          (node) => node.dataset.id
+        )
+      );
+      assertParts(
+        [...new Set(overview)],
+        botVersions.at(-1),
+        "version in the overview"
+      );
+    },
+  ],
+  [
+    "presenter view shows the current version and the next click's",
+    () => {
+      browser("open", `${deckUrl}/presenter/magic-move?clicks=1`);
+      browser("wait", ".slidev-presenter .magic-move svg.pele");
+      browser("wait", "1000");
+      const [current, next] = inPage(readVersions, ".slidev-presenter");
+      assertVersion(current, 1);
+      assertVersion(next, 2);
+    },
+  ],
+];
+
 const server = process.env.PELE_DECK_URL
   ? undefined
   : spawn("pnpm", ["exec", "slidev", "--port", port, "--open", "false"], {
@@ -616,7 +772,7 @@ const server = process.env.PELE_DECK_URL
 let failures = 0;
 try {
   await waitForDeck();
-  for (const [name, check] of [...checks, ...stepChecks]) {
+  for (const [name, check] of [...checks, ...stepChecks, ...magicMoveChecks]) {
     try {
       check();
       console.log(`✓ ${name}`);
