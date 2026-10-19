@@ -1,0 +1,150 @@
+// The step plan: which parts of a diagram are active, receding or hidden at
+// each step. Pure: it reads Pele's parsed model and never touches the DOM, so
+// it runs the same in Node (tests, the transformer) and in the browser.
+//
+// Parts are named by the `data-id` Pele puts on their SVG elements.
+
+import { parse } from "pele/lazy";
+
+import { diagramParts } from "./diagram-parts";
+import type { DiagramEdge } from "./diagram-parts";
+
+/** Focus mode emphasises each step's parts; reveal mode builds the diagram up. */
+export type StepMode = "focus" | "reveal";
+
+export interface StepPlanInput {
+  /** The diagram block's Mermaid source. Its diagram type must be loaded. */
+  source: string;
+  /** One entry per step as written in the fence, e.g. `["user", "agent,llm", "*"]`. */
+  steps: string[];
+  mode: StepMode;
+}
+
+/** A plan for a diagram block's steps, ready to be read at any step. */
+export interface Plan {
+  kind: "plan";
+  mode: StepMode;
+  stepCount: number;
+  /** Every part the plan classifies, in the diagram's order. */
+  parts: string[];
+  /** The parts each step names, edges not included (`*` names every part). */
+  named: Set<string>[];
+  /** Edges that no step names, so they are active once both ends are. */
+  automaticEdges: DiagramEdge[];
+}
+
+/** Why a diagram block's steps cannot be applied. */
+export type StepError =
+  | { kind: "unknown-ids"; unknown: string[]; known: string[] }
+  | { kind: "no-steps"; type: string }
+  /** Pele cannot read the diagram; Pele itself shows why on the slide. */
+  | { kind: "unreadable" };
+
+export type StepPlan = Plan | StepError;
+
+/** The state of every part at one step. */
+export interface PartStates {
+  active: string[];
+  receding: string[];
+  hidden: string[];
+}
+
+const EVERYTHING = "*";
+
+const readModel = (source: string) => {
+  try {
+    return parse(source);
+  } catch {
+    return null;
+  }
+};
+
+export const planSteps = (input: StepPlanInput): StepPlan => {
+  const model = readModel(input.source);
+  if (!model) {
+    return { kind: "unreadable" };
+  }
+  const parts = diagramParts(model);
+  if (!parts) {
+    return { kind: "no-steps", type: model.type };
+  }
+
+  const unknown: string[] = [];
+  const named = input.steps.map((step) => {
+    const ids = step
+      .split(",")
+      .map((id) => id.trim())
+      .filter((id) => id !== "");
+    if (ids.includes(EVERYTHING)) {
+      return new Set(parts.all);
+    }
+    return new Set(
+      ids.flatMap((id) => {
+        const resolved = parts.resolve(id);
+        if (!resolved && !unknown.includes(id)) {
+          unknown.push(id);
+        }
+        return resolved ?? [];
+      })
+    );
+  });
+  if (unknown.length > 0) {
+    return { kind: "unknown-ids", known: parts.known, unknown };
+  }
+
+  // A step that names an edge takes it out of the automatic rule; `*` does not.
+  const namedEdges = new Set(
+    input.steps.flatMap((step, index) =>
+      step.includes(EVERYTHING) ? [] : [...(named[index] ?? [])]
+    )
+  );
+  return {
+    automaticEdges: parts.edges.filter((edge) => !namedEdges.has(edge.id)),
+    kind: "plan",
+    mode: input.mode,
+    named,
+    parts: parts.all,
+    stepCount: input.steps.length,
+  };
+};
+
+/** The state of every part at step `index` (0 is the step shown first). */
+export const partsAt = (plan: Plan, index: number): PartStates => {
+  const last = Math.max(0, Math.min(index, plan.stepCount - 1));
+  const steps =
+    plan.mode === "reveal" ? plan.named.slice(0, last + 1) : [plan.named[last]];
+  const active = new Set(steps.flatMap((step) => [...(step ?? [])]));
+  for (const edge of plan.automaticEdges) {
+    if (edge.ends.every((end) => active.has(end))) {
+      active.add(edge.id);
+    }
+  }
+  const inactive = plan.parts.filter((part) => !active.has(part));
+  return {
+    active: plan.parts.filter((part) => active.has(part)),
+    hidden: plan.mode === "reveal" ? inactive : [],
+    receding: plan.mode === "focus" ? inactive : [],
+  };
+};
+
+const quoted = (ids: string[]) => ids.map((id) => `"${id}"`).join(", ");
+
+/** What to tell the presenter, naming the fix. */
+export const describeStepError = (error: StepError): string => {
+  switch (error.kind) {
+    case "unknown-ids": {
+      const label =
+        error.unknown.length === 1 ? "Unknown step id" : "Unknown step ids";
+      return `${label} ${quoted(error.unknown)}. Use the ids of the diagram: ${error.known.join(", ")}.`;
+    }
+    case "no-steps": {
+      return `Steps are not available for ${error.type} diagrams yet. Remove the {…} steps from the fence.`;
+    }
+    case "unreadable": {
+      return "The diagram cannot be read, so its steps cannot be applied. Fix the diagram first.";
+    }
+    default: {
+      return "";
+    }
+  }
+};
