@@ -7,7 +7,7 @@
 import { parse } from "pele/lazy";
 
 import { diagramParts } from "./diagram-parts";
-import type { DiagramEdge } from "./diagram-parts";
+import type { DiagramContainer, DiagramEdge } from "./diagram-parts";
 
 /** Focus mode emphasises each step's parts; reveal mode builds the diagram up. */
 export type StepMode = "focus" | "reveal";
@@ -31,6 +31,8 @@ export interface Plan {
   named: Set<string>[];
   /** Edges that no step names, so they are active once both ends are. */
   automaticEdges: DiagramEdge[];
+  /** Parts drawn around others, active while any part inside them is. */
+  containers: DiagramContainer[];
 }
 
 /** Why a diagram block's steps cannot be applied. */
@@ -109,6 +111,7 @@ export const planSteps = (input: StepPlanInput): StepPlan => {
   );
   return {
     automaticEdges: parts.edges.filter((edge) => !namedEdges.has(edge.id)),
+    containers: parts.containers,
     kind: "plan",
     mode: input.mode,
     named,
@@ -123,6 +126,12 @@ export const partsAt = (plan: Plan, index: number): PartStates => {
   const steps =
     plan.mode === "reveal" ? plan.named.slice(0, last + 1) : [plan.named[last]];
   const active = new Set(steps.flatMap((step) => [...(step ?? [])]));
+  // A container stays in view while a part inside it is active.
+  for (const container of plan.containers) {
+    if (container.parts.some((part) => active.has(part))) {
+      active.add(container.id);
+    }
+  }
   for (const edge of plan.automaticEdges) {
     if (edge.ends.every((end) => active.has(end))) {
       active.add(edge.id);
@@ -147,7 +156,9 @@ export const describeStepError = (error: StepError): string => {
       return `${label} ${quoted(error.unknown)}. Use the ids of the diagram: ${error.known.join(", ")}.`;
     }
     case "no-steps": {
-      return `Steps are not available for ${error.type} diagrams yet. Remove the {…} steps from the fence.`;
+      return error.type === "xychart"
+        ? 'Steps are not available for xychart diagrams whose series have no title. Give each series a title (bar "Sales" [10, 50]) and use the titles as step ids, or remove the {…} steps from the fence.'
+        : `Steps are not available for ${error.type} diagrams: Pele gives their parts no ids. Remove the {…} steps from the fence.`;
     }
     case "unreadable": {
       return "The diagram cannot be read, so its steps cannot be applied. Fix the diagram first.";

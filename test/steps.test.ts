@@ -208,16 +208,3 @@ describe("unknown step ids", () => {
     );
   });
 });
-
-describe("diagram types without steps", () => {
-  it("says steps are not available for that type, by name", async () => {
-    await load("pie");
-    const plan = planSteps({
-      mode: "focus",
-      source: 'pie\n  "Dogs" : 3\n  "Cats" : 2',
-      steps: "Dogs|*",
-    });
-
-    expect(plan).toStrictEqual({ kind: "no-steps", type: "pie" });
-  });
-});

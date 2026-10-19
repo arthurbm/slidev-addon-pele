@@ -400,6 +400,11 @@ onBeforeUnmount(() => {
   opacity: 0.2;
 }
 
+/* A receding card in a receding column recedes once, not twice. */
+.pele-steps .pele-step-receding .pele-step-receding {
+  opacity: 1;
+}
+
 .pele-steps .pele-step-hidden {
   opacity: 0;
 }
