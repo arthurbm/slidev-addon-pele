@@ -72,6 +72,72 @@ const openSlide = (slide) => {
   browser("wait", "300");
 };
 
+/**
+ * Opens a slide by its `routeAlias` (slide numbers shift as the deck grows)
+ * and waits until its diagrams are drawn. The slide's `class` scopes queries.
+ */
+const openAliasedSlide = (alias) => {
+  browser("open", `${deckUrl}/${alias}`);
+  browser("wait", `.${alias} .pele-diagram svg`);
+  inPage(async () => {
+    await document.fonts.ready;
+    return true;
+  });
+  browser("wait", "300");
+};
+
+/** Sets Slidev's colour mode, which persists in localStorage, and reloads. */
+const useColorSchema = (schema) => {
+  inPage((value) => {
+    localStorage.setItem("slidev-color-schema", value);
+    return true;
+  }, schema);
+  browser("reload");
+};
+
+/** Reads each diagram's background colour, keeping its SVG for later. */
+const readColors = (alias) =>
+  [...document.querySelectorAll(`.${alias} .pele-diagram svg.pele`)].map(
+    (svg, index) => {
+      window.peleSvgs ??= [];
+      const sameSvg = window.peleSvgs[index] === svg;
+      window.peleSvgs[index] = svg;
+      return {
+        background: getComputedStyle(svg).getPropertyValue("--_bg").trim(),
+        dark: document.documentElement.classList.contains("dark"),
+        sameSvg,
+      };
+    }
+  );
+
+/** Reads how an edge's line is drawn right now. */
+const readEdgeLine = ({ alias, id }) => {
+  const edge = [
+    ...document.querySelectorAll(`.${alias} .pele-diagram .pele-edge`),
+  ].find((element) => element.dataset.id === id);
+  const line = edge?.querySelector("path:not(.pele-marker)");
+  if (!line) {
+    return null;
+  }
+  const style = getComputedStyle(line);
+  return {
+    dashes: style.strokeDasharray,
+    offset: style.strokeDashoffset,
+    reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches,
+  };
+};
+
+/** Reads an edge's line twice, 150 ms apart, to see whether it moves. */
+const readEdgeMotion = (edge) => {
+  const before = inPage(readEdgeLine, edge);
+  browser("wait", "150");
+  const after = inPage(readEdgeLine, edge);
+  if (!before || !after) {
+    return null;
+  }
+  return { ...after, moved: after.offset !== before.offset };
+};
+
 /** Reads the diagram blocks on a slide, as the audience sees them. */
 const readDiagrams = (slide) =>
   [
@@ -159,6 +225,94 @@ const checks = [
           label.text > 0 && label.text < label.box,
           `label of "${label.id}" (${label.text}px) does not fit its box (${label.box}px)`
         );
+      }
+    },
+  ],
+  [
+    "a block preset applies: flexoki beside auto",
+    () => {
+      openAliasedSlide("dark-mode");
+      useColorSchema("light");
+      openAliasedSlide("dark-mode");
+      const [auto, flexoki] = inPage(readColors, "dark-mode");
+      assert(auto && flexoki, "expected two diagrams on the dark-mode slide");
+      assert(
+        auto.background === "#fff",
+        `auto should draw on #fff in light mode, got ${auto.background}`
+      );
+      assert(
+        flexoki.background === "#fffcf0",
+        `flexoki should draw on #fffcf0 in light mode, got ${flexoki.background}`
+      );
+    },
+  ],
+  [
+    "toggling dark mode recolours diagrams without re-rendering them",
+    () => {
+      openAliasedSlide("dark-mode");
+      useColorSchema("light");
+      openAliasedSlide("dark-mode");
+      const light = inPage(readColors, "dark-mode");
+      browser("press", "d");
+      browser(
+        "wait",
+        "--fn",
+        "document.documentElement.classList.contains('dark')"
+      );
+      browser("wait", "300");
+      const dark = inPage(readColors, "dark-mode");
+      useColorSchema("auto");
+      assert(dark.length === 2, `expected two diagrams, got ${dark.length}`);
+      for (const [index, diagram] of dark.entries()) {
+        assert(diagram.dark, "the deck did not switch to dark mode");
+        assert(diagram.sameSvg, `diagram ${index + 1} was re-rendered`);
+        assert(
+          diagram.background !== light[index]?.background,
+          `diagram ${index + 1} kept its colours: ${diagram.background}`
+        );
+      }
+      assert(
+        dark[1]?.background === "#100f0f",
+        `flexoki should draw on #100f0f in dark mode, got ${dark[1]?.background}`
+      );
+    },
+  ],
+  [
+    "animated edges move, and plain edges stand still",
+    () => {
+      openAliasedSlide("animated-edges");
+      const animated = readEdgeMotion({
+        alias: "animated-edges",
+        id: "e1",
+      });
+      assert(animated, "edge e1 missing on the animated-edges slide");
+      assert(animated.moved, "edge e1 does not move");
+      const plain = readEdgeMotion({
+        alias: "animated-edges",
+        id: "L_agent_tools_0",
+      });
+      assert(plain, "edge agent --> tools missing");
+      assert(!plain.moved, "a plain edge moves");
+    },
+  ],
+  [
+    "animated edges stand still under reduced motion",
+    () => {
+      browser("set", "media", "light", "reduced-motion");
+      try {
+        openAliasedSlide("animated-edges");
+        const edge = readEdgeMotion({
+          alias: "animated-edges",
+          id: "e1",
+        });
+        assert(edge?.reducedMotion, "reduced motion is not emulated");
+        assert(!edge.moved, "edge e1 moves under reduced motion");
+        assert(
+          edge.dashes !== "none",
+          "edge e1 lost its dashes under reduced motion"
+        );
+      } finally {
+        browser("set", "media", "light");
       }
     },
   ],
