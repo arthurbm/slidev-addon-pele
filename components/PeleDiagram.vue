@@ -15,14 +15,19 @@ import { findAnimatedEdges } from "../src/animated-edges";
 import type { AnimatedEdge } from "../src/animated-edges";
 import type { Preset } from "../src/preset";
 import { decodeSource } from "../src/source-prop";
-import { describeStepError, partsAt, planSteps } from "../src/step-plan";
+import {
+  describeStepError,
+  partsAt,
+  planSteps,
+  splitSteps,
+} from "../src/step-plan";
 import type { PartStates, StepPlan } from "../src/step-plan";
 
 const {
   source,
   preset = "auto",
   tone = "none",
-  steps = [],
+  steps = "",
   reveal = false,
   at = "+1",
 } = defineProps<{
@@ -31,8 +36,8 @@ const {
   /** The preset's CSS variables apply through `data-pele-preset`. */
   preset?: Preset["name"];
   tone?: NonNullable<Preset["tone"]> | "none";
-  /** The block's steps as written in the fence, one entry per step. */
-  steps?: string[];
+  /** The block's steps as written in the fence, e.g. `user|agent,llm|*`. */
+  steps?: string;
   /** Reveal mode: parts stay hidden until their step. Focus mode otherwise. */
   reveal?: boolean;
   /** The click the second step lands on, as `at` on Slidev code blocks. */
@@ -75,6 +80,7 @@ const markAnimatedEdges = (element: HTMLElement) => {
 // per step after the first, the first step showing before any click.
 const { $clicksContext: clicks } = useSlideContext();
 const clicksId = `pele-${Math.random().toString(36).slice(2)}`;
+const stepCount = steps.trim() === "" ? 0 : splitSteps(steps).length;
 const stepIndex = shallowRef(0);
 
 // Toggles the step classes on every element carrying a part's `data-id`.
@@ -106,14 +112,14 @@ const stepError = computed(() =>
 );
 
 onMounted(async () => {
-  if (steps.length > 0) {
+  if (stepCount > 0) {
     // Must happen before the slide's clicks are mounted, so before any await.
-    const clicksInfo = clicks.calculateSince(at, steps.length - 1);
+    const clicksInfo = clicks.calculateSince(at, stepCount - 1);
     clicks.register(clicksId, clicksInfo);
     const index = computed(() =>
       clicksInfo
         ? Math.max(0, clicks.current - clicksInfo.start + 1)
-        : steps.length - 1
+        : stepCount - 1
     );
     watch(
       index,
@@ -138,7 +144,7 @@ onMounted(async () => {
     // Every draw replaces the SVG, so classes are applied again after each.
     onRender: () => {
       markAnimatedEdges(element);
-      if (steps.length > 0 && !plan.value) {
+      if (stepCount > 0 && !plan.value) {
         // The diagram type is loaded once Pele has drawn it.
         plan.value = planSteps({
           mode: reveal ? "reveal" : "focus",
@@ -167,7 +173,7 @@ onBeforeUnmount(() => {
 <template>
   <div
     class="pele-diagram"
-    :class="{ 'pele-steps': steps.length > 0 }"
+    :class="{ 'pele-steps': stepCount > 0 }"
     :data-pele-preset="preset"
     :data-pele-tone="tone"
   >

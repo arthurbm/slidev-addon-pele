@@ -51,8 +51,8 @@ const component = (block: PeleBlock) => {
     attributes.push(`tone="${block.preset.tone}"`);
   }
   if (block.steps) {
-    // Step ids are made of `[\w,*-]`, so they never contain a quote.
-    attributes.push(`:steps='${JSON.stringify(block.steps)}'`);
+    // Steps are made of `[\w,|*-]` and spaces, so they never contain a quote.
+    attributes.push(`steps="${block.steps}"`);
   }
   if (block.options) {
     // Like Slidev's Mermaid blocks: the options are a JavaScript expression.

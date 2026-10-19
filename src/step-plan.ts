@@ -15,8 +15,8 @@ export type StepMode = "focus" | "reveal";
 export interface StepPlanInput {
   /** The diagram block's Mermaid source. Its diagram type must be loaded. */
   source: string;
-  /** One entry per step as written in the fence, e.g. `["user", "agent,llm", "*"]`. */
-  steps: string[];
+  /** The steps as written in the fence, e.g. `user|agent,llm|*`. */
+  steps: string;
   mode: StepMode;
 }
 
@@ -51,6 +51,18 @@ export interface PartStates {
 
 const EVERYTHING = "*";
 
+/**
+ * Splits steps with the grammar of code line highlighting: `|` separates
+ * steps, `,` joins ids. `user|agent,llm|*` is three steps.
+ */
+export const splitSteps = (steps: string): string[][] =>
+  steps.split("|").map((step) =>
+    step
+      .split(",")
+      .map((id) => id.trim())
+      .filter((id) => id !== "")
+  );
+
 const readModel = (source: string) => {
   try {
     return parse(source);
@@ -69,12 +81,9 @@ export const planSteps = (input: StepPlanInput): StepPlan => {
     return { kind: "no-steps", type: model.type };
   }
 
+  const steps = splitSteps(input.steps);
   const unknown: string[] = [];
-  const named = input.steps.map((step) => {
-    const ids = step
-      .split(",")
-      .map((id) => id.trim())
-      .filter((id) => id !== "");
+  const named = steps.map((ids) => {
     if (ids.includes(EVERYTHING)) {
       return new Set(parts.all);
     }
@@ -94,8 +103,8 @@ export const planSteps = (input: StepPlanInput): StepPlan => {
 
   // A step that names an edge takes it out of the automatic rule; `*` does not.
   const namedEdges = new Set(
-    input.steps.flatMap((step, index) =>
-      step.includes(EVERYTHING) ? [] : [...(named[index] ?? [])]
+    steps.flatMap((ids, index) =>
+      ids.includes(EVERYTHING) ? [] : [...(named[index] ?? [])]
     )
   );
   return {
@@ -104,7 +113,7 @@ export const planSteps = (input: StepPlanInput): StepPlan => {
     mode: input.mode,
     named,
     parts: parts.all,
-    stepCount: input.steps.length,
+    stepCount: steps.length,
   };
 };
 

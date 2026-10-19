@@ -38,7 +38,7 @@ describe("codeblock transformer", () => {
       "flowchart LR\n  a --> b\n  b --> c\n"
     );
 
-    expect(html).toContain(`:steps='["a","b,c","*"]'`);
+    expect(html).toContain('steps="a|b,c|*"');
     expect(html).toContain(`v-bind="{reveal: true, at: 1}"`);
   });
 

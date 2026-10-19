@@ -26,7 +26,7 @@ describe("steps in the fence", () => {
 
     expect(block).toMatchObject({
       renderer: "pele",
-      steps: ["user", "agent,llm", "tools", "*"],
+      steps: "user|agent,llm|tools|*",
     });
   });
 
@@ -38,7 +38,7 @@ describe("steps in the fence", () => {
 
     expect(block).toMatchObject({
       options: "{reveal: true, at: 1}",
-      steps: ["user", "agent"],
+      steps: "user | agent",
     });
   });
 
@@ -141,7 +141,7 @@ describe("focus mode", () => {
     const plan = planSteps({
       mode: "focus",
       source: loop,
-      steps: ["user", "tools"],
+      steps: "user|tools",
     });
     if (plan.kind !== "plan") {
       throw new Error(plan.kind);
@@ -215,7 +215,7 @@ describe("diagram types without steps", () => {
     const plan = planSteps({
       mode: "focus",
       source: 'pie\n  "Dogs" : 3\n  "Cats" : 2',
-      steps: ["Dogs", "*"],
+      steps: "Dogs|*",
     });
 
     expect(plan).toStrictEqual({ kind: "no-steps", type: "pie" });

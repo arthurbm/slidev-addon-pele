@@ -18,8 +18,8 @@ export interface PeleBlock {
   source: string;
   preset: Preset;
   warnings: string[];
-  /** The block's steps, one entry per step, e.g. `["user", "agent,llm", "*"]`. */
-  steps?: string[];
+  /** The block's steps as written in the fence, e.g. `user|agent,llm|*`. */
+  steps?: string;
   /** The block's options as written, a JavaScript object expression. */
   options?: string;
 }
