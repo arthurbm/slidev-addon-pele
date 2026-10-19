@@ -77,6 +77,16 @@ const openAliasedSlide = (path) => {
   browser("wait", "300");
 };
 
+/**
+ * A fresh dev server compiles the deck and optimises dependencies on its first
+ * page load, which can outlast a check's usual wait (and Vite may reload the
+ * page once). Draw one diagram before the checks start, with a longer wait.
+ */
+const warmUp = () => {
+  browser("open", `${deckUrl}/responsive`);
+  browser("wait", ".responsive .pele-diagram svg", "--timeout", "120000");
+};
+
 /** Waits until a function run in the page returns something truthy. */
 const waitFor = (fn, argument) =>
   browser("wait", "--fn", `(${fn})(${JSON.stringify(argument)})`);
@@ -1027,6 +1037,7 @@ const server = process.env.PELE_DECK_URL
 let failures = 0;
 try {
   await waitForDeck();
+  warmUp();
   isolateFromSharedState();
   for (const [name, check] of [
     ...deckChecks,
