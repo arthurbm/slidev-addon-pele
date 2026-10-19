@@ -116,7 +116,7 @@ describe("diagram types Pele cannot draw", () => {
     expect(block).toStrictEqual({
       renderer: "slidev",
       warnings: [
-        "[pele] Pele cannot draw ZenUML, so this diagram is drawn by mermaid.js.",
+        "[pele] Pele cannot draw ZenUML, so this diagram is handed to mermaid.js, which needs the @mermaid-js/mermaid-zenuml plugin registered to draw it.",
       ],
     });
   });

@@ -86,7 +86,7 @@ const handBack = (
 ): DiagramBlock => {
   if (reason === "zenuml") {
     warnings.push(
-      "[pele] Pele cannot draw ZenUML, so this diagram is drawn by mermaid.js."
+      "[pele] Pele cannot draw ZenUML, so this diagram is handed to mermaid.js, which needs the @mermaid-js/mermaid-zenuml plugin registered to draw it."
     );
   }
   if (fence.steps === undefined) {
