@@ -118,7 +118,38 @@ flowchart LR
 
 Overview, presenter view, going back a slide and PDF export (without `--with-clicks`) show the last step, as Slidev does for code.
 
-<!-- TODO(#12): document magic-move between diagram versions (````md magic-move with diagram blocks as its versions) here once ticket #12 lands. -->
+## Magic-move between versions
+
+To grow or rearrange a diagram click by click, write Slidev's own ` ````md magic-move ` fence with diagram blocks inside. Each diagram block is a **version**; each click moves to the next one, and parts with the same id glide from where they were to where they are now, while parts in only one version fade in or out:
+
+`````md
+````md magic-move
+```mermaid
+flowchart LR
+  user[User] --> bot[Bot]
+```
+
+```mermaid
+flowchart LR
+  user[User] --> bot[Bot]
+  bot --> llm[LLM]
+```
+
+```mermaid
+flowchart LR
+  user[User] --> bot[Bot]
+  bot --> llm[LLM]
+  bot --> tools[Tools]
+```
+````
+`````
+
+- Keep a part's id the same across versions (`bot` above) so it glides rather than fading out and back in.
+- As in Slidev, `{at: 2}` and `{duration: 1200}` go on the outer fence (` ````md magic-move {at: 2} `), and `magicMoveDuration` in the headmatter sets the default duration. Line ranges and the `[title]` have no effect on diagrams.
+- Every version uses the deck's preset (`pele.theme`). Steps and options on a version are ignored with a `[pele]` warning: step through a diagram on a slide of its own.
+- Flowchart versions all keep one direction, so no version flips to top-to-bottom on its own in a narrow column.
+- The addon takes over the fence only when every version is a diagram block it would draw. If one version is handed back to mermaid.js (`renderer: 'mermaid'`, the deck's opt-out, ZenUML) or is not a diagram block at all, the whole fence is left to Slidev's magic-move, which shows it as code.
+- Viewers who prefer reduced motion see each version swap in at once. Export draws each version at rest: the last one, or one page per version with `--with-clicks`.
 
 ## Presets
 

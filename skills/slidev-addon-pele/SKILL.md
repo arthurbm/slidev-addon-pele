@@ -65,7 +65,26 @@ sequenceDiagram
 
 A code block and a diagram on the same slide step one after the other. To step them together, give both `{at:1}`, exactly as Slidev syncs two code blocks: ` ```python {1-2|3-4|*}{at:1} ` beside ` ```mermaid {user,agent|agent,llm|*}{at:1} `.
 
-<!-- TODO(#12): magic-move between diagram versions (````md magic-move with diagram blocks inside) goes here once ticket #12 lands. -->
+## Magic-move between versions
+
+To grow or rearrange a diagram across clicks, use Slidev's ` ````md magic-move ` fence with diagram blocks inside. Each block is a **version**; each click glides to the next, matching parts by id, so keep a part's id the same in every version (`bot` here):
+
+`````md
+````md magic-move
+```mermaid
+flowchart LR
+  user[User] --> bot[Bot]
+```
+
+```mermaid
+flowchart LR
+  user[User] --> bot[Bot]
+  bot --> llm[LLM]
+```
+````
+`````
+
+`{at}` and `{duration}` go on the outer fence, as in Slidev. Versions take no steps or options of their own and use the deck's preset; to step through a diagram, give it a slide of its own. The addon draws the fence only when every version is a diagram block it would draw; one handed-back or non-diagram version leaves the whole fence to Slidev, as code.
 
 ## Animated edges
 
