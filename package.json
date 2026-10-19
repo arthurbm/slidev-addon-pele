@@ -15,6 +15,7 @@
   "files": [
     "components",
     "setup",
+    "skills",
     "src"
   ],
   "type": "module",
@@ -27,6 +28,7 @@
     "test": "vitest run",
     "test:browser": "node test/browser/showcase.mjs",
     "test:deps": "node test/package/runtime-dependencies.mjs",
+    "test:pack": "node test/package/pack.mjs",
     "typecheck": "vue-tsc --noEmit",
     "prepare": "lefthook install"
   },
