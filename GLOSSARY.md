@@ -41,3 +41,7 @@ _Avoid_: Highlight mode, dim mode
 **Reveal mode**:
 The behavior where parts of the diagram stay hidden until their step arrives, so the diagram builds up click by click.
 _Avoid_: Build mode, progressive mode
+
+**Version**:
+One diagram block inside a ` ````md magic-move ` fence; each click moves the diagram to the next version, its parts gliding from where they were to where they are now.
+_Avoid_: Step (a step is inside one diagram), frame, stage, slide
