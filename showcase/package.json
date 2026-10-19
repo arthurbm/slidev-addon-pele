@@ -1,0 +1,16 @@
+{
+  "name": "showcase",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "slidev build",
+    "dev": "slidev --port 3030 --open false 2>&1 | tee dev.log",
+    "export": "slidev export"
+  },
+  "dependencies": {
+    "@slidev/cli": "53.0.0",
+    "@slidev/theme-default": "0.25.0",
+    "slidev-addon-pele": "workspace:*",
+    "vue": "^3.5.0"
+  }
+}

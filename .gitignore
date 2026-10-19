@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.slidev/
+*.log
+# Dev server log of the Showcase deck, read by agents verifying in the browser
+showcase/dev.log
+# Launch thread drafts, kept out of git
+drafts/
+# Agent worktrees
+.claude/worktrees/

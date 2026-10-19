@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Lint, types, Node tests, runtime dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm check
+
+  browser:
+    name: Browser suite (Showcase deck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          agent-browser: "true"
+      - run: pnpm test:browser
+
+  pack:
+    name: Pack check (${{ matrix.package-manager }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # npm is what `npm init slidev` uses; pnpm needs the markdown-it
+        # workaround the README documents (slidevjs/slidev#2761).
+        package-manager: [npm, pnpm]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          agent-browser: "true"
+      - run: pnpm test:pack ${{ matrix.package-manager }}
+
+  pages:
+    name: Deploy the Showcase deck to GitHub Pages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [check, browser, pack]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - id: pages
+        uses: actions/configure-pages@v6
+      # base_path is "/slidev-addon-pele" on github.io, "" on a custom domain.
+      - run: pnpm --filter showcase build --base "${{ steps.pages.outputs.base_path }}/"
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: showcase/dist
+      - id: deployment
+        uses: actions/deploy-pages@v5
