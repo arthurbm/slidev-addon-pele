@@ -15,7 +15,8 @@
   "files": [
     "components",
     "setup",
-    "src"
+    "src",
+    "styles"
   ],
   "type": "module",
   "scripts": {
