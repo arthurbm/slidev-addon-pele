@@ -19,13 +19,14 @@
   ],
   "type": "module",
   "scripts": {
-    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test",
+    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm test:deps",
     "dev": "pnpm --filter showcase dev",
     "fix": "ultracite fix",
     "format:check": "oxfmt --check",
     "lint": "oxlint",
     "test": "vitest run",
     "test:browser": "node test/browser/showcase.mjs",
+    "test:deps": "node test/package/runtime-dependencies.mjs",
     "typecheck": "vue-tsc --noEmit",
     "prepare": "lefthook install"
   },
