@@ -1,0 +1,233 @@
+/*
+ * The Showcase deck's "paper" look: the palette and type of the maintainer's
+ * Gen AI deck (warm off-white paper, graphite ink, one terracotta stamp),
+ * applied with plain CSS over Slidev's default theme. Diagrams take it through
+ * Pele's --pele-* variables: no preset involved.
+ *
+ * The Gen AI deck is light only; the dark "ink" values below are this deck's
+ * own, so the dark-mode slide has something to switch to.
+ */
+
+:root {
+  --paper: #faf7f0;
+  --paper-2: #f3ece0;
+  --paper-3: #ece3d6;
+  --ink: #1f1c19;
+  --ink-2: #55504a;
+  --ink-3: #7a7168;
+  --rule: #e0d8ca;
+  --terracotta: #a8412a;
+  --terracotta-strong: #8a3421;
+  --terracotta-wash: #f2dcd2;
+  --olive: #4f6134;
+  --failure: #97271b;
+
+  --font-title: "Fraunces", ui-serif, Georgia, serif;
+  --font-body: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  --slidev-theme-primary: var(--terracotta);
+  --slidev-code-background: var(--paper-2);
+  --slidev-code-foreground: var(--ink);
+  --slidev-code-padding: 0.6rem 0.85rem;
+  --slidev-code-radius: 3px;
+  --slidev-code-line-height: 1.55;
+  --slidev-transition-duration: 0.3s;
+}
+
+html.dark {
+  --paper: #1c1916;
+  --paper-2: #26221e;
+  --paper-3: #302a25;
+  --ink: #ece3d6;
+  --ink-2: #c4b9ab;
+  --ink-3: #9a9085;
+  --rule: #3b342e;
+  --terracotta: #df8064;
+  --terracotta-strong: #eb9a80;
+  --terracotta-wash: #4a2b21;
+  --olive: #a5b67e;
+  --failure: #e5705e;
+
+  /* Slidev sets its own dark code colours on html.dark; keep the paper's. */
+  --slidev-code-background: var(--paper-2);
+  --slidev-code-foreground: var(--ink);
+}
+
+/* --- paper and ink, on every slide --------------------------------------- */
+
+html,
+body,
+#app,
+#slide-content,
+.slidev-layout {
+  background-color: var(--paper);
+  color: var(--ink);
+}
+
+.slidev-layout {
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Doubled class: beats the default theme's h1 rule without !important. */
+.slidev-layout.slidev-layout h1 {
+  font-family: var(--font-title);
+  font-weight: 600;
+  font-size: 2.1rem;
+  letter-spacing: -0.025em;
+  line-height: 1.08;
+  color: var(--ink);
+  text-wrap: balance;
+  margin-bottom: 1rem;
+}
+
+.slidev-layout.slidev-layout h1 code {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 0.8em;
+  font-weight: 500;
+}
+
+.slidev-layout p,
+.slidev-layout li {
+  color: var(--ink-2);
+}
+
+.slidev-layout strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.slidev-layout em {
+  font-family: var(--font-title);
+}
+
+.slidev-layout a {
+  color: var(--terracotta);
+  border-bottom: 1px solid var(--rule);
+}
+
+.slidev-layout code {
+  font-family: var(--font-mono);
+}
+
+.slidev-layout :not(pre) > code {
+  border: 1px solid var(--rule);
+  background: var(--paper-2);
+  color: var(--ink);
+  border-radius: 3px;
+  padding: 0.05em 0.3em;
+  font-size: 0.85em;
+}
+
+.slidev-layout .slidev-code {
+  border: 1px solid var(--rule);
+}
+
+/* Code steps fade instead of blinking; 0.38 still reads on a projector. */
+.slidev-layout .slidev-code .line {
+  transition: opacity 260ms var(--ease-out);
+}
+
+.slidev-layout .slidev-code .slidev-code-dishonored {
+  opacity: 0.38;
+}
+
+/* The fence a slide is about, written above its title like a margin note:
+   what you type to get what you see. */
+.fence {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  color: var(--terracotta);
+}
+
+.fence::before {
+  content: "";
+  flex: none;
+  width: 1.15rem;
+  height: 2px;
+  background: currentColor;
+}
+
+.fence > p {
+  margin: 0;
+  color: inherit;
+}
+
+/* Small print under a diagram or a column. */
+.note {
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.note > p {
+  margin: 0;
+  color: inherit;
+}
+
+/* A column caption: which renderer, which width. */
+.caption {
+  margin-bottom: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--ink-3);
+}
+
+.caption > p {
+  margin: 0;
+  color: inherit;
+}
+
+/* --- diagrams in the paper palette --------------------------------------- */
+
+/* The default preset (auto) only; a block that names another preset, like
+   the dark-mode slide's flexoki block, keeps it. */
+.pele-diagram[data-pele-preset="auto"][data-pele-tone="none"] {
+  --pele-bg: var(--paper);
+  --pele-fg: var(--ink);
+  --pele-muted: var(--ink-3);
+  --pele-line: var(--ink-2);
+  --pele-surface: var(--paper-2);
+  --pele-surface-alt: var(--paper-3);
+  --pele-border: var(--ink-2);
+  --pele-accent: var(--terracotta);
+  --pele-critical: var(--failure);
+  --pele-error: var(--failure);
+  --pele-font-mono: var(--font-mono);
+  --pele-series-1: var(--terracotta);
+  --pele-series-2: var(--olive);
+  --pele-series-3: var(--ink-2);
+  --pele-series-4: #c98a6b;
+  --pele-series-5: #8f9c6a;
+  --pele-series-6: var(--ink-3);
+  --pele-series-7: var(--terracotta-strong);
+  --pele-series-8: #b5a593;
+}
+
+/* A slide that is mostly one diagram: the diagram sits centred in the room
+   left under the title, with its note below. */
+.stage {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 19rem;
+}
+
+.stage svg.pele {
+  display: block;
+  margin-inline: auto;
+}
+
+.stage + .note {
+  text-align: center;
+}

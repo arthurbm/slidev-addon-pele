@@ -6,6 +6,7 @@
 // `--no-sandbox` (needed in CI containers); override with AGENT_BROWSER_ARGS.
 
 import { execFileSync, spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
@@ -58,18 +59,6 @@ const waitForDeck = async (attemptsLeft = 120) => {
   }
   await sleep(500);
   await waitForDeck(attemptsLeft - 1);
-};
-
-/** Opens a slide and waits until its diagrams are drawn with web fonts loaded. */
-const openSlide = (slide) => {
-  browser("open", `${deckUrl}/${slide}`);
-  browser("wait", `.slidev-page-${slide} .pele-diagram svg`);
-  inPage(async () => {
-    await document.fonts.ready;
-    return true;
-  });
-  // Let Pele finish its re-draw after the fonts load.
-  browser("wait", "300");
 };
 
 /**
@@ -140,13 +129,9 @@ const readEdgeMotion = (edge) => {
   return { ...after, moved: after.offset !== before.offset };
 };
 
-/** Reads the diagram blocks on a slide, as the audience sees them. */
-const readDiagrams = (slide) =>
-  [
-    ...(document
-      .querySelector(`.slidev-page-${slide}`)
-      ?.querySelectorAll(".pele-diagram") ?? []),
-  ].map((diagram) => {
+/** Reads the diagram blocks on an aliased slide, as the audience sees them. */
+const readDiagrams = (alias) =>
+  [...document.querySelectorAll(`.${alias} .pele-diagram`)].map((diagram) => {
     const box = diagram.querySelector("svg")?.getBoundingClientRect();
     const parts = [...diagram.querySelectorAll("[data-id]")];
     return {
@@ -161,6 +146,13 @@ const readDiagrams = (slide) =>
           id: part.dataset.id,
           text: part.querySelector("text").getBBox().width,
         })),
+      // Where each node sits on screen, by id.
+      nodes: Object.fromEntries(
+        [...diagram.querySelectorAll(".pele-node[data-id]")].map((node) => {
+          const { x, y, width, height } = node.getBoundingClientRect();
+          return [node.dataset.id, { x: x + width / 2, y: y + height / 2 }];
+        })
+      ),
       shadowRoot: diagram.shadowRoot !== null,
       width: box?.width ?? 0,
     };
@@ -233,21 +225,25 @@ const currentSlide = () => {
   return state;
 };
 
+// The tool-loop slide: Python `{2-5|6|7|8|*}` beside the diagram's
+// `{model|model,tool|tool,harness|harness,result,model|*}`, both `{at:1}`.
 const toolLoopSteps = [
   {
-    code: ["def run(question):", "messages = [user(question)]"],
-    nodes: ["agent", "user"],
-  },
-  { code: ["while True:", "reply = llm(messages)"], nodes: ["agent", "llm"] },
-  {
     code: [
+      "while True:",
+      "reply = model(messages)",
       "if not reply.tool_calls:",
       "return reply.text",
-      "messages += call_tools(reply.tool_calls)",
     ],
-    nodes: ["agent", "tools"],
+    nodes: ["model"],
   },
-  { code: [], nodes: ["agent", "llm", "tools", "user"] },
+  { code: ["call = reply.tool_calls[0]"], nodes: ["model", "tool"] },
+  { code: ["result = harness.run(call)"], nodes: ["harness", "tool"] },
+  {
+    code: ["messages.append(result)"],
+    nodes: ["harness", "model", "result"],
+  },
+  { code: [], nodes: ["harness", "model", "result", "tool"] },
 ];
 
 const assertToolLoopStep = (state, index) => {
@@ -272,11 +268,15 @@ const assertToolLoopStep = (state, index) => {
 // The active messages and notes at each step of the sequence-steps slide,
 // by label: `{1|2-3|4-5|6-7|8|*}`, the note showing with message 5.
 const sequenceSteps = [
-  ["What's the weather in Lisbon?"],
-  ["Messages + tool list", 'Call get_weather("Lisbon")'],
-  ['get_weather("Lisbon")', "21 °C, sunny", "The result goes back to the LLM"],
-  ["Messages + tool result", '"It\'s 21 °C and sunny."'],
-  ["It's 21 °C and sunny."],
+  ["The sink in 302B is leaking"],
+  ["Messages + tool list", 'open_ticket(unit: "302B")'],
+  [
+    'open_ticket(unit: "302B")',
+    "Ticket 4821, open",
+    "The result goes back to the model",
+  ],
+  ["Messages + tool result", '"I opened ticket 4821."'],
+  ["I opened ticket 4821."],
 ];
 sequenceSteps.push(sequenceSteps.flat());
 
@@ -309,15 +309,17 @@ const stepChecks = [
       for (const [index, state] of forward.entries()) {
         assertToolLoopStep(state, index);
       }
-      const [first, second] = forward.map(({ diagrams: [diagram] }) => diagram);
+      const [, second, third] = forward.map(
+        ({ diagrams: [diagram] }) => diagram
+      );
       // An edge is active once both of its ends are.
       assert(
-        first.active.includes("L_user_agent_0"),
-        "user → agent is not active with both ends"
+        second.active.includes("L_model_tool_0"),
+        "model → tool is not active with both ends"
       );
       assert(
-        !second.active.includes("L_user_agent_0"),
-        "user → agent stays active without user"
+        !third.active.includes("L_model_tool_0"),
+        "model → tool stays active without model"
       );
 
       const backward = [];
@@ -335,10 +337,10 @@ const stepChecks = [
     () => {
       openStepsSlide("rag-reveal");
       const revealed = [
-        ["question"],
-        ["embed", "question", "search", "store"],
-        ["chunks", "embed", "question", "search", "store"],
-        ["answer", "chunks", "embed", "llm", "question", "search", "store"],
+        ["chunks", "docs"],
+        ["chunks", "docs", "space"],
+        ["chunks", "docs", "question", "space"],
+        ["chunks", "docs", "question", "space", "topk"],
       ];
       const states = [currentSlide()];
       for (let click = 1; click < revealed.length; click += 1) {
@@ -463,14 +465,85 @@ const stepChecks = [
   ],
 ];
 
+// The responsive slide draws one flowchart twice: a ```mermaid block in a
+// wide column, then the same body as a ```pele block in a narrow one.
+const lifecycle = ["build", "test", "deploy", "monitor"];
+
+/** Whether each node of the chain sits further along `axis` than the last. */
+const followsAlong = (diagram, axis) =>
+  lifecycle.every(
+    (id, index) =>
+      index === 0 ||
+      diagram.nodes[id]?.[axis] > diagram.nodes[lifecycle[index - 1]]?.[axis]
+  );
+
+// The Showcase deck's story, in the spec's order (#1), by `routeAlias`.
+const storyline = [
+  "cover",
+  "two-renderers",
+  "install",
+  "tool-loop",
+  "rag-reveal",
+  "sequence-steps",
+  "magic-move",
+  "responsive",
+  "dark-mode",
+  "animated-edges",
+  "gallery",
+  "tokens",
+  "closing",
+];
+
+const deckChecks = [
+  [
+    "the Showcase deck tells its story in the spec's order",
+    () => {
+      browser("open", `${deckUrl}/1`);
+      browser("wait", "--fn", "!!window.__slidev__?.nav.slides.length");
+      const aliases = inPage(() =>
+        window.__slidev__.nav.slides.map(
+          (slide) => slide.meta?.slide?.frontmatter?.routeAlias ?? null
+        )
+      );
+      assert(
+        JSON.stringify(aliases) === JSON.stringify(storyline),
+        `slides out of order: ${aliases}`
+      );
+    },
+  ],
+  [
+    "the tokens slide shows the counts `pnpm tokens` wrote",
+    () => {
+      const counts = JSON.parse(
+        readFileSync(
+          new URL("../../showcase/tokens/counts.json", import.meta.url),
+          "utf-8"
+        )
+      );
+      browser("open", `${deckUrl}/tokens`);
+      browser("wait", "--fn", "!!document.querySelector('.tokens__count')");
+      const shown = inPage(() =>
+        [...document.querySelectorAll(".tokens .tokens__count")].map((count) =>
+          count.textContent.replaceAll(/\s+/gu, " ").trim()
+        )
+      );
+      const expected = [counts.excalidraw, counts.mermaid].map(
+        ({ bytes, tokens }) =>
+          `${tokens.toLocaleString("en-US")} tokens ${bytes.toLocaleString("en-US")} bytes`
+      );
+      assertParts(shown, expected, "counts on the tokens slide");
+    },
+  ],
+];
+
 const checks = [
   [
     "a ```mermaid flowchart is drawn by Pele, in the slide's DOM, left to right",
     () => {
-      openSlide(2);
-      const [diagram] = inPage(readDiagrams, 2);
-      assert(diagram, "no diagram block on slide 2");
-      for (const id of ["user", "agent", "llm", "tools"]) {
+      openAliasedSlide("responsive");
+      const [diagram] = inPage(readDiagrams, "responsive");
+      assert(diagram, "no diagram block on the responsive slide");
+      for (const id of lifecycle) {
         assert(
           diagram.ids.includes(id),
           `node "${id}" missing: ${diagram.ids}`
@@ -478,15 +551,17 @@ const checks = [
       }
       assert(!diagram.shadowRoot, "the diagram is inside a ShadowRoot");
       assert(
-        diagram.width > diagram.height,
-        `expected left to right, got ${diagram.width}x${diagram.height}`
+        diagram.width > diagram.height && followsAlong(diagram, "x"),
+        `expected left to right, got ${JSON.stringify(diagram.nodes)}`
       );
     },
   ],
   [
     "mermaid.js is not loaded",
     () => {
-      openSlide(2);
+      // Neither this slide nor its neighbours hand a block back to mermaid.js
+      // (the two-renderers slide does, on purpose).
+      openAliasedSlide("responsive");
       const loaded = inPage(() =>
         performance
           .getEntriesByType("resource")
@@ -499,27 +574,27 @@ const checks = [
   [
     "a ```pele flowchart in a narrow column turns top to bottom",
     () => {
-      openSlide(3);
-      const [diagram] = inPage(readDiagrams, 3);
-      assert(diagram, "no diagram block on slide 3");
+      openAliasedSlide("responsive");
+      const [, diagram] = inPage(readDiagrams, "responsive");
+      assert(diagram, "no narrow diagram block on the responsive slide");
       assert(
-        diagram.ids.includes("question"),
-        `node "question" missing: ${diagram.ids}`
+        lifecycle.every((id) => diagram.ids.includes(id)),
+        `nodes missing: ${diagram.ids}`
       );
       assert(
-        diagram.height > diagram.width,
-        `expected top to bottom, got ${diagram.width}x${diagram.height}`
+        followsAlong(diagram, "y"),
+        `expected top to bottom, got ${JSON.stringify(diagram.nodes)}`
       );
     },
   ],
   [
     "labels fit their boxes once the slide's web fonts load",
     () => {
-      openSlide(3);
-      const [diagram] = inPage(readDiagrams, 3);
-      assert(diagram, "no diagram block on slide 3");
-      assert(diagram.labels.length > 0, "no labelled nodes found");
-      for (const label of diagram.labels) {
+      openAliasedSlide("responsive");
+      const diagrams = inPage(readDiagrams, "responsive");
+      const labels = diagrams.flatMap((diagram) => diagram.labels);
+      assert(labels.length > 0, "no labelled nodes found");
+      for (const label of labels) {
         assert(
           label.text > 0 && label.text < label.box,
           `label of "${label.id}" (${label.text}px) does not fit its box (${label.box}px)`
@@ -536,8 +611,9 @@ const checks = [
       const [auto, flexoki] = inPage(readColors, "dark-mode");
       assert(auto && flexoki, "expected two diagrams on the dark-mode slide");
       assert(
-        auto.background === "#fff",
-        `auto should draw on #fff in light mode, got ${auto.background}`
+        // The deck's own CSS paints the auto preset in its paper palette.
+        auto.background === "#faf7f0",
+        `auto should draw on the deck's #faf7f0 paper in light mode, got ${auto.background}`
       );
       assert(
         flexoki.background === "#fffcf0",
@@ -588,9 +664,9 @@ const checks = [
       assert(animated.moved, "edge e1 does not move");
       const plain = readEdgeMotion({
         alias: "animated-edges",
-        id: "L_agent_tools_0",
+        id: "L_model_answer_0",
       });
-      assert(plain, "edge agent --> tools missing");
+      assert(plain, "edge model --> answer missing");
       assert(!plain.moved, "a plain edge moves");
     },
   ],
@@ -687,8 +763,8 @@ const checks = [
         const size = sizes[renderer];
         const scale = size.shown / sizes.slideScale / size.natural;
         assert(
-          Math.abs(scale - 0.8) < 0.01,
-          `${renderer} drew at ${scale.toFixed(3)} of its natural height, expected 0.8`
+          Math.abs(scale - 0.65) < 0.01,
+          `${renderer} drew at ${scale.toFixed(3)} of its natural height, expected 0.65`
         );
       }
     },
@@ -697,10 +773,19 @@ const checks = [
 
 // The bot on the magic-move slide: its nodes in each version.
 const botVersions = [
-  ["bot", "user"],
-  ["bot", "llm", "user"],
-  ["bot", "llm", "tools", "user"],
-  ["bot", "llm", "memory", "tools", "user"],
+  ["chat", "model", "prompt"],
+  ["chat", "docs", "model", "orders", "prompt"],
+  ["bill", "chat", "contract", "model", "prompt", "ticket"],
+  [
+    "approval",
+    "chat",
+    "contract",
+    "discount",
+    "memory",
+    "model",
+    "prompt",
+    "ticket",
+  ],
 ];
 
 /** The nodes each magic-move diagram on the current slide draws. */
@@ -729,7 +814,7 @@ const assertVersion = (diagram, index) =>
     `version ${index + 1} at ${diagram?.url}`
   );
 
-/** Records the bot node's `transform` on every frame for a while. */
+/** Records the model node's `transform` on every frame for a while. */
 const recordBot = (milliseconds) => {
   window.peleBotFrames = [];
   const started = performance.now();
@@ -739,7 +824,7 @@ const recordBot = (milliseconds) => {
       ...document.querySelectorAll(
         `.slidev-page-${no} .pele-diagram .pele-node`
       ),
-    ].find((node) => node.dataset.id === "bot");
+    ].find((node) => node.dataset.id === "model");
     window.peleBotFrames.push(bot?.getAttribute("transform"));
     if (performance.now() - started < milliseconds) {
       requestAnimationFrame(frame);
@@ -749,7 +834,7 @@ const recordBot = (milliseconds) => {
   return true;
 };
 
-/** The bot's distinct positions while moving from version 3 to version 4. */
+/** The model's distinct positions while moving from version 3 to version 4. */
 const botPositionsToLastVersion = () => {
   openAliasedSlide("magic-move?clicks=2");
   inPage(recordBot, 1500);
@@ -784,7 +869,7 @@ const magicMoveChecks = [
       // From version 3's place to version 4's, through places in between.
       assert(
         positions.length > 4,
-        `the bot jumped instead of gliding: ${positions.join(" → ")}`
+        `the model jumped instead of gliding: ${positions.join(" → ")}`
       );
     },
   ],
@@ -796,7 +881,7 @@ const magicMoveChecks = [
         const positions = botPositionsToLastVersion();
         assert(
           positions.length === 2,
-          `expected the bot at two places only, got ${positions.join(" → ")}`
+          `expected the model at two places only, got ${positions.join(" → ")}`
         );
       } finally {
         browser("set", "media", "light");
@@ -860,7 +945,12 @@ const server = process.env.PELE_DECK_URL
 let failures = 0;
 try {
   await waitForDeck();
-  for (const [name, check] of [...checks, ...stepChecks, ...magicMoveChecks]) {
+  for (const [name, check] of [
+    ...deckChecks,
+    ...checks,
+    ...stepChecks,
+    ...magicMoveChecks,
+  ]) {
     try {
       check();
       console.log(`✓ ${name}`);

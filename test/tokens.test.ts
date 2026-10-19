@@ -20,4 +20,16 @@ describe("the tokens slide's numbers", () => {
 
     await expect(measureShowcase()).resolves.toStrictEqual(committed);
   });
+
+  it("measure the diagram the tool-loop slide draws", async () => {
+    const slides = await readFile(new URL("slides.md", showcase), "utf-8");
+    const counted = await readFile(
+      new URL("tokens/tool-loop.mmd", showcase),
+      "utf-8"
+    );
+    const slide = slides.split(/^routeAlias: tool-loop$/mu)[1] ?? "";
+    const block = /^```mermaid[^\n]*\n(?<body>.*?)^```$/msu.exec(slide);
+
+    expect(block?.groups?.body).toBe(counted);
+  });
 });
