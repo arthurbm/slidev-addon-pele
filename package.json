@@ -30,6 +30,7 @@
     "test:browser": "node test/browser/showcase.mjs",
     "test:deps": "node test/package/runtime-dependencies.mjs",
     "test:pack": "node test/package/pack.mjs",
+    "tokens": "node scripts/tokens.ts",
     "typecheck": "vue-tsc --noEmit",
     "prepare": "lefthook install"
   },
@@ -41,6 +42,7 @@
     "@slidev/client": "53.0.0",
     "@slidev/types": "53.0.0",
     "@types/node": "^24.19.2",
+    "gpt-tokenizer": "4.0.0",
     "lefthook": "^2.2.2",
     "oxfmt": "^0.71.0",
     "oxlint": "^1.88.0",

@@ -1,0 +1,5 @@
+flowchart LR
+  model[Model] -->|only writes structured text| tool["{tool: open_ticket, unit: 302B}"]
+  tool -->|the harness runs it in the ERP| harness[Harness runs it]
+  harness -->|tool result| result["{ticket: #4821, status: open}"]
+  result -->|back into context, it decides again| model

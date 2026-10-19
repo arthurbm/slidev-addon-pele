@@ -1,0 +1,13 @@
+{
+  "excalidraw": {
+    "file": "tool-loop.excalidraw",
+    "bytes": 10946,
+    "tokens": 3929
+  },
+  "mermaid": {
+    "file": "tool-loop.mmd",
+    "bytes": 292,
+    "tokens": 84
+  },
+  "tokenizer": "gpt-tokenizer 4.0.0, o200k_base"
+}

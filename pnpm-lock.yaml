@@ -26,6 +26,9 @@ importers:
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
+      gpt-tokenizer:
+        specifier: 4.0.0
+        version: 4.0.0
       lefthook:
         specifier: ^2.2.2
         version: 2.2.2
@@ -2103,6 +2106,9 @@ packages:
   global-directory@5.0.0:
     resolution: {integrity: sha512-1pgFdhK3J2LeM+dVf2Pd424yHx2ou338lC0ErNP2hPx4j8eW1Sp0XqSjNxtk6Tc4Kr5wlWtSvz8cn2yb7/SG/w==}
     engines: {node: '>=20'}
+
+  gpt-tokenizer@4.0.0:
+    resolution: {integrity: sha512-YAWIyzvuVUHEfW7tFfFAxH8qQb+Q3RU9nYOTy7skMNX5qzU6Q8jxTHZLyO56ug1vYvCR7wndzpd3jwD86/mhjQ==}
 
   gray-matter@4.0.3:
     resolution: {integrity: sha512-5v6yZd4JK3eMI3FqqCouswVqwugaA9r4dNZB1wwcmrD02QkV5H0y7XBQW8QwQqEaZY1pM9aqORSORhJRdNK44Q==}
@@ -6034,6 +6040,8 @@ snapshots:
   global-directory@5.0.0:
     dependencies:
       ini: 6.0.0
+
+  gpt-tokenizer@4.0.0: {}
 
   gray-matter@4.0.3:
     dependencies:

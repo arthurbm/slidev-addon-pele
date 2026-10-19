@@ -16,6 +16,6 @@
       "@slidev/client": ["./types/slidev-client.d.ts"]
     }
   },
-  "include": ["components", "setup", "src", "test", "types", "*.ts"],
+  "include": ["components", "scripts", "setup", "src", "test", "types", "*.ts"],
   "exclude": ["node_modules", "showcase"]
 }
