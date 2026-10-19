@@ -26,7 +26,7 @@ describe("diagram block", () => {
   it("draws a ```pele flowchart with Pele", () => {
     const block = readDiagramBlock({ body: flowchart, fence: "pele" });
 
-    expect(block).toStrictEqual({ renderer: "pele", source: flowchart.trim() });
+    expect(block).toMatchObject({ renderer: "pele", source: flowchart.trim() });
   });
 
   it("hands a code block in another language back to Slidev", () => {
@@ -35,6 +35,6 @@ describe("diagram block", () => {
       fence: "ts {1|2}",
     });
 
-    expect(block).toStrictEqual({ renderer: "slidev" });
+    expect(block).toStrictEqual({ renderer: "slidev", warnings: [] });
   });
 });
