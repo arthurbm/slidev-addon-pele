@@ -1,6 +1,8 @@
 import { readFence } from "./fence";
 import type { Fence } from "./fence";
 import { readOptions } from "./options";
+import { readPreset } from "./preset";
+import type { Preset } from "./preset";
 
 /** What an author writes for one fenced block in a slide. */
 export interface DiagramBlockInput {
@@ -21,6 +23,7 @@ export type DiagramBlock =
   | {
       renderer: "pele";
       source: string;
+      preset: Preset;
       /** The steps as written in the fence, e.g. `user|agent,llm|*`. */
       steps?: string;
       /** The fence's options, a JavaScript object expression bound as is. */
@@ -104,12 +107,21 @@ const handBack = (
   };
 };
 
+/** The deck settings under `pele` in the headmatter. */
+const readDeckSettings = (headmatter: Record<string, unknown> = {}) => {
+  const { pele } = headmatter;
+  return typeof pele === "object" && pele !== null
+    ? (pele as Record<string, unknown>)
+    : {};
+};
+
 export const readDiagramBlock = (input: DiagramBlockInput): DiagramBlock => {
   const fence = readFence(input.fence);
   if (!DIAGRAM_LANGUAGES.has(fence.language)) {
     return { renderer: "slidev", warnings: [] };
   }
   const source = input.body.trim();
+  const deck = readDeckSettings(input.headmatter);
   const warnings: string[] = [];
   if (fence.ignored) {
     warnings.push(
@@ -118,8 +130,8 @@ export const readDiagramBlock = (input: DiagramBlockInput): DiagramBlock => {
   }
 
   const options = readOptions(fence.options);
-  const renderer =
-    options.kind === "literal" ? options.values.renderer : undefined;
+  const values = options.kind === "literal" ? options.values : {};
+  const { renderer } = values;
   if (renderer !== undefined && !RENDERERS.has(String(renderer))) {
     warnings.push(
       `[pele] Unknown renderer '${String(renderer)}': use renderer: 'pele' or renderer: 'mermaid'.`
@@ -138,8 +150,7 @@ export const readDiagramBlock = (input: DiagramBlockInput): DiagramBlock => {
       );
     }
   } else {
-    const deck = input.headmatter?.pele as { mermaid?: unknown } | undefined;
-    if (deck?.mermaid !== undefined && typeof deck.mermaid !== "boolean") {
+    if (deck.mermaid !== undefined && typeof deck.mermaid !== "boolean") {
       warnings.push(
         `[pele] pele.mermaid in the headmatter must be true or false, got ${JSON.stringify(deck.mermaid)}: write \`pele: { mermaid: false }\` to draw \`\`\`mermaid blocks with mermaid.js.`
       );
@@ -147,7 +158,7 @@ export const readDiagramBlock = (input: DiagramBlockInput): DiagramBlock => {
     if (renderer === "mermaid") {
       return handBack(fence, "block", warnings);
     }
-    if (deck?.mermaid === false && renderer !== "pele") {
+    if (deck.mermaid === false && renderer !== "pele") {
       return handBack(fence, "deck", warnings);
     }
     if (isZenUml(source)) {
@@ -155,11 +166,16 @@ export const readDiagramBlock = (input: DiagramBlockInput): DiagramBlock => {
     }
   }
 
-  if (options.kind === "literal") {
-    warnings.push(...checkOptions(options.values));
-  }
+  warnings.push(...checkOptions(values));
+  // A block's theme wins over the deck's. A theme that Vue computes in the
+  // slide cannot be read here, so the deck's applies to it.
+  const { preset, warnings: presetWarnings } = readPreset(
+    values.theme ?? deck.theme
+  );
+  warnings.push(...presetWarnings);
   return {
     options: fence.options,
+    preset,
     renderer: "pele",
     source,
     steps: fence.steps,

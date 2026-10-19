@@ -74,4 +74,26 @@ describe("codeblock transformer", () => {
       "[pele] Slide 3: scale must be a number greater than 0, as in {scale: 0.8}."
     );
   });
+
+  it("hands the block's preset to the diagram component", async () => {
+    const html = await transform(
+      contextFor("mermaid {theme: 'dark'}", flowchart, {
+        pele: { theme: "flexoki" },
+      })
+    );
+
+    expect(html).toContain(' preset="auto"');
+    expect(html).toContain(' tone="dark"');
+  });
+
+  it("prints the block's warnings in the terminal", async () => {
+    const warn = vi.spyOn(console, "warn").mockReturnValue();
+
+    await transform(contextFor("mermaid {theme: 'forest'}", flowchart));
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringMatching(/^\[pele\] Slide 3: Mermaid's "forest" theme/u)
+    );
+    warn.mockRestore();
+  });
 });

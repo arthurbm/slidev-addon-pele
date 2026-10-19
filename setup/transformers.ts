@@ -32,7 +32,14 @@ const diagramBlock: CodeblockTransformer = (context) => {
     return null;
   }
 
-  const attributes = [`source="${encodeSource(block.source)}"`];
+  const { name, tone } = block.preset;
+  const attributes = [
+    `source="${encodeSource(block.source)}"`,
+    `preset="${name}"`,
+  ];
+  if (tone) {
+    attributes.push(`tone="${tone}"`);
+  }
   if (block.steps !== undefined) {
     attributes.push(`steps="${block.steps}"`);
   }

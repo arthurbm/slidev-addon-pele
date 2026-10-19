@@ -1,0 +1,130 @@
+/*
+ * Presets for diagram blocks: sets of Pele's --pele-* CSS variables on the
+ * diagram's container. Pele reads them live, so switching Slidev's dark mode
+ * recolours a diagram without drawing it again.
+ *
+ * Every preset rule sits in :where(), so it has no specificity: a deck themes
+ * its diagrams with any rule of its own, e.g.
+ *   .pele-diagram { --pele-accent: tomato; }
+ *   html.dark .pele-diagram { --pele-bg: #000; }
+ */
+
+/* auto: follows the Slidev theme's colours and fonts. Text and lines take the
+   slide's text colour; the background matches Slidev's page background. */
+:where(.pele-diagram[data-pele-preset="auto"]) {
+  --pele-bg: #fff;
+  --pele-fg: currentColor;
+  --pele-line: currentColor;
+  --pele-muted: color-mix(in srgb, currentColor 60%, var(--pele-bg));
+  --pele-surface: color-mix(in srgb, currentColor 6%, var(--pele-bg));
+  --pele-surface-alt: color-mix(in srgb, currentColor 11%, var(--pele-bg));
+  --pele-border: color-mix(in srgb, currentColor 35%, var(--pele-bg));
+  --pele-accent: var(--slidev-theme-primary, #3ab9d5);
+  --pele-font-mono: var(--slidev-code-font-family, monospace);
+}
+
+:where(html.dark .pele-diagram[data-pele-preset="auto"]) {
+  --pele-bg: #121212;
+}
+
+/* auto in greys, for Mermaid's `neutral` theme. */
+:where(.pele-diagram[data-pele-preset="auto"][data-pele-tone="grey"]) {
+  --pele-accent: color-mix(in srgb, currentColor 55%, var(--pele-bg));
+  --pele-critical: color-mix(in srgb, currentColor 80%, var(--pele-bg));
+  --pele-series-1: color-mix(in srgb, currentColor 85%, var(--pele-bg));
+  --pele-series-2: color-mix(in srgb, currentColor 65%, var(--pele-bg));
+  --pele-series-3: color-mix(in srgb, currentColor 45%, var(--pele-bg));
+  --pele-series-4: color-mix(in srgb, currentColor 30%, var(--pele-bg));
+  --pele-series-5: color-mix(in srgb, currentColor 75%, var(--pele-bg));
+  --pele-series-6: color-mix(in srgb, currentColor 55%, var(--pele-bg));
+  --pele-series-7: color-mix(in srgb, currentColor 38%, var(--pele-bg));
+  --pele-series-8: color-mix(in srgb, currentColor 22%, var(--pele-bg));
+}
+
+/* auto forced dark, for Mermaid's `dark` theme, whatever Slidev's mode. */
+:where(.pele-diagram[data-pele-preset="auto"][data-pele-tone="dark"]) {
+  --pele-bg: #121212;
+  color: #ddd;
+}
+
+/* flexoki: the Flexoki palette, light and dark. */
+:where(.pele-diagram[data-pele-preset="flexoki"]) {
+  --pele-bg: #fffcf0;
+  --pele-fg: #100f0f;
+  --pele-muted: #6f6e69;
+  --pele-line: #100f0f;
+  --pele-surface: #f2f0e5;
+  --pele-surface-alt: #e6e4d9;
+  --pele-border: #cecdc3;
+  --pele-accent: #205ea6;
+  --pele-critical: #af3029;
+  --pele-error: #af3029;
+  --pele-series-1: #205ea6;
+  --pele-series-2: #bc5215;
+  --pele-series-3: #66800b;
+  --pele-series-4: #af3029;
+  --pele-series-5: #24837b;
+  --pele-series-6: #ad8301;
+  --pele-series-7: #5e409d;
+  --pele-series-8: #a02f6f;
+  --pele-font-mono: var(--slidev-code-font-family, monospace);
+}
+
+:where(html.dark .pele-diagram[data-pele-preset="flexoki"]) {
+  --pele-bg: #100f0f;
+  --pele-fg: #cecdc3;
+  --pele-muted: #878580;
+  --pele-line: #cecdc3;
+  --pele-surface: #1c1b1a;
+  --pele-surface-alt: #282726;
+  --pele-border: #403e3c;
+  --pele-accent: #4385be;
+  --pele-critical: #d14d41;
+  --pele-error: #d14d41;
+  --pele-series-1: #4385be;
+  --pele-series-2: #da702c;
+  --pele-series-3: #879a39;
+  --pele-series-4: #d14d41;
+  --pele-series-5: #3aa99f;
+  --pele-series-6: #d0a215;
+  --pele-series-7: #8b7ec8;
+  --pele-series-8: #ce5d97;
+}
+
+/* Presets whose background differs from the slide's draw it, so the diagram
+   reads as a card rather than floating text. */
+:where(
+    .pele-diagram[data-pele-preset="flexoki"],
+    .pele-diagram[data-pele-tone="dark"]
+  )
+  > svg.pele {
+  background: var(--_bg);
+  border-radius: var(--_r);
+}
+
+/*
+ * Animated edges. Pele parses `animate: true` and `animation: fast|slow` on
+ * an edge but draws it still; the diagram component marks those edges and
+ * these rules move their dashes, at Mermaid's speeds. The arrowhead is a
+ * separate path (.pele-marker) and stays solid.
+ */
+.pele-diagram .pele-edge.pele-animated > path:not(.pele-marker) {
+  stroke-dasharray: 9 5;
+  animation: pele-edge-flow 0.31s linear infinite;
+}
+
+.pele-diagram .pele-edge.pele-animated-slow > path:not(.pele-marker) {
+  animation-duration: 0.78s;
+}
+
+@keyframes pele-edge-flow {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pele-diagram .pele-edge.pele-animated > path:not(.pele-marker) {
+    animation: none;
+  }
+}
