@@ -129,3 +129,58 @@ describe("codeblock transformer", () => {
     warn.mockRestore();
   });
 });
+
+/** A ````md magic-move fence: Slidev gives its body to the transformer. */
+const magicMove = (info: string, code: string) =>
+  ({ ...contextFor(info, code), fence: 4 }) as CodeblockTransformContext;
+
+describe("magic-move in the codeblock transformer", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const versions = [
+    "flowchart LR\n  user --> bot",
+    "flowchart LR\n  user --> bot\n  bot --> llm",
+  ];
+  const body = versions
+    .map((version) => `\`\`\`mermaid\n${version}\n\`\`\`\n`)
+    .join("");
+
+  it("emits one diagram carrying every version and binds the options", async () => {
+    const html = await transform(magicMove("md magic-move {at: 2}", body));
+
+    expect(html).toMatch(/^<PeleDiagram /u);
+    const encoded = html?.match(/versions="(?<encoded>[^"]*)"/u)?.groups
+      ?.encoded;
+    expect(JSON.parse(decodeSource(encoded ?? ""))).toStrictEqual(versions);
+    expect(html).toContain(' preset="auto"');
+    expect(html).toContain(' v-bind="{at: 2}"');
+    expect(html).not.toContain(" source=");
+  });
+
+  it("leaves a magic-move of code to Slidev", async () => {
+    const yaml = "```yaml\na: 1\n```\n```yaml\na: 2\n```\n";
+
+    await expect(
+      transform(magicMove("md magic-move", yaml))
+    ).resolves.toBeNull();
+  });
+
+  it("prints a version's warnings with the slide", async () => {
+    const warn = vi.spyOn(console, "warn").mockReturnValue();
+
+    await transform(
+      magicMove(
+        "md magic-move",
+        body.replace("```mermaid", "```mermaid {user}")
+      )
+    );
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /^\[pele\] slides\.md, slide 3: Steps are not supported inside magic-move/u
+      )
+    );
+  });
+});

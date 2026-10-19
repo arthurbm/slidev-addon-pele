@@ -185,6 +185,51 @@ sequenceDiagram
 ```
 
 ---
+routeAlias: magic-move
+class: magic-move
+---
+
+# A bot, growing click by click
+
+````md magic-move
+```mermaid
+flowchart LR
+  user[User] --> bot[Bot]
+```
+```mermaid
+flowchart LR
+  user[User] --> bot[Bot]
+  bot --> llm[LLM]
+```
+```mermaid
+flowchart LR
+  user[User] --> bot[Bot]
+  bot --> llm[LLM]
+  bot --> tools[Tools]
+  tools --> bot
+  subgraph agent[Agent]
+    bot
+    tools
+  end
+```
+```mermaid
+flowchart LR
+  user[User] --> bot[Bot]
+  bot --> llm[LLM]
+  bot --> tools[Tools]
+  tools --> bot
+  bot --> memory[(Memory)]
+  subgraph agent[Agent]
+    bot
+    tools
+    memory
+  end
+```
+````
+
+Slidev's own ` ````md magic-move `, with diagram blocks as its versions: nodes glide to their new places.
+
+---
 layout: two-cols-header
 routeAlias: two-renderers
 class: two-renderers

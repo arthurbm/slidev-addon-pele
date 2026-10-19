@@ -9,6 +9,8 @@ import { detectType, load } from "pele/lazy";
 
 import { readDiagramBlock } from "../src/diagram-block";
 import type { PeleBlock } from "../src/diagram-block";
+import { readMagicMove } from "../src/magic-move";
+import type { MagicMoveBlock } from "../src/magic-move";
 import { encodeSource } from "../src/source-prop";
 import { describeStepError, planSteps } from "../src/step-plan";
 
@@ -61,18 +63,53 @@ const component = (block: PeleBlock) => {
   return `<PeleDiagram ${attributes.join(" ")} />`;
 };
 
-// Runs before Slidev's own Mermaid transformer (ADR 0001): returning null
-// hands the block back to Slidev.
+/** One diagram that moves between its versions, a click each. */
+const magicMoveComponent = (block: MagicMoveBlock) => {
+  const attributes = [
+    `versions="${encodeSource(JSON.stringify(block.versions))}"`,
+    `preset="${block.preset.name}"`,
+  ];
+  if (block.preset.tone) {
+    attributes.push(`tone="${block.preset.tone}"`);
+  }
+  if (block.options) {
+    // Like Slidev's magic-move: `{at}` and the rest bound as an expression.
+    attributes.push(`v-bind="${block.options}"`);
+  }
+  return `<PeleDiagram ${attributes.join(" ")} />`;
+};
+
+const printWarnings = (
+  warnings: string[],
+  slide: CodeblockTransformContext["slide"]
+) => {
+  for (const warning of warnings) {
+    console.warn(warning.replace("[pele] ", `[pele] ${where(slide)}`));
+  }
+};
+
+// Runs before Slidev's own Mermaid and magic-move transformers (ADR 0001):
+// returning null hands the block back to Slidev.
 const diagramBlock: CodeblockTransformer = async (context) => {
-  const { info, code, options, slide } = context;
+  const { info, code, fence, options, slide } = context;
+  // Slidev reads a magic-move only from a four-backtick fence.
+  if (fence === 4) {
+    const magicMove = readMagicMove({
+      body: code,
+      fence: info,
+      headmatter: options.data.headmatter,
+    });
+    if (magicMove.renderer === "pele") {
+      printWarnings(magicMove.warnings, slide);
+      return magicMoveComponent(magicMove);
+    }
+  }
   const block = readDiagramBlock({
     body: code,
     fence: info,
     headmatter: options.data.headmatter,
   });
-  for (const warning of block.warnings) {
-    console.warn(warning.replace("[pele] ", `[pele] ${where(slide)}`));
-  }
+  printWarnings(block.warnings, slide);
 
   if (block.renderer !== "pele") {
     // Slidev's transformers share this context, so its Mermaid transformer
