@@ -43,7 +43,13 @@ const checkSteps = async (
 };
 
 const component = (block: PeleBlock) => {
-  const attributes = [`source="${encodeSource(block.source)}"`];
+  const attributes = [
+    `source="${encodeSource(block.source)}"`,
+    `preset="${block.preset.name}"`,
+  ];
+  if (block.preset.tone) {
+    attributes.push(`tone="${block.preset.tone}"`);
+  }
   if (block.steps) {
     // Step ids are made of `[\w,*-]`, so they never contain a quote.
     attributes.push(`:steps='${JSON.stringify(block.steps)}'`);
@@ -70,6 +76,9 @@ const diagramBlock: CodeblockTransformer = async ({
   });
   if (block.renderer !== "pele") {
     return null;
+  }
+  for (const warning of block.warnings) {
+    console.warn(warning);
   }
   await checkSteps(block, slide);
   return component(block);
