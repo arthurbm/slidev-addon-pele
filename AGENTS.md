@@ -11,3 +11,8 @@ Vocabulário padrão: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-fo
 ### Domain docs
 
 Single-context: `GLOSSARY.md` + `docs/adr/` na raiz. See `docs/agents/domain.md`.
+
+## Project docs
+
+- Before touching the transformer, clicks, export, rendering or `data-id`s, read `docs/research/slidev-pele-internals.md`.
+- Before writing a test, read `docs/testing.md`.
