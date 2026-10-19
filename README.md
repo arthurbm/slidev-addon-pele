@@ -2,12 +2,18 @@
 
 A [Slidev](https://sli.dev) addon that draws your Mermaid diagrams with [Pele](https://github.com/obsidianmd/pele) instead of mermaid.js, and lets each diagram step on click the way code blocks do.
 
+<p align="center"><img src="https://raw.githubusercontent.com/arthurbm/slidev-addon-pele/main/docs/assets/code-and-diagram.gif" alt="A Python function and a flowchart of the tool-call loop, stepping together click by click"></p>
+
 - Your existing ` ```mermaid ` blocks render with Pele, with no other change.
 - Diagrams are small, self-contained SVG that fit the column they sit in and follow the Slidev theme and dark mode.
 - ` ```mermaid {user|agent,llm|*} ` emphasises or reveals parts of the diagram click by click.
 - No mermaid.js in your deck: each diagram type loads only its own code.
 
 See it in the [Showcase deck](https://slidev-addon-pele.vercel.app).
+
+The same ` ```mermaid ` source, drawn by mermaid.js (left) and by Pele (right):
+
+<img src="https://raw.githubusercontent.com/arthurbm/slidev-addon-pele/main/docs/assets/two-renderers.png" alt="The same flowchart drawn by mermaid.js and by Pele, side by side">
 
 ## Install
 
@@ -53,7 +59,11 @@ flowchart LR
 
 Pele draws all 33 diagram types it knows: flowchart, sequence, class, state, er, gantt, pie, mindmap, timeline, journey, gitGraph, xychart, quadrantChart, architecture, c4, kanban, sankey, block, packet, requirement, radar, treemap and more.
 
+<img src="https://raw.githubusercontent.com/arthurbm/slidev-addon-pele/main/docs/assets/gallery.png" alt="A grid of all 33 diagram types Pele draws">
+
 A diagram fills the width it is given and never grows past its natural size. In a column narrower than 640 px, a left-to-right flowchart turns top-to-bottom. Labels are measured with the slide's own font.
+
+<img src="https://raw.githubusercontent.com/arthurbm/slidev-addon-pele/main/docs/assets/responsive.gif" alt="A left-to-right flowchart turning top-to-bottom as its column narrows">
 
 ## Steps
 
@@ -78,6 +88,10 @@ What a step names:
 
 A step id the diagram does not have prints a `[pele]` warning in the terminal and under the diagram, listing the ids it does have.
 
+A sequence diagram stepped by message, ` ```mermaid {1|2-3|4-5|6-7|8|*} `:
+
+<img src="https://raw.githubusercontent.com/arthurbm/slidev-addon-pele/main/docs/assets/sequence-steps.gif" alt="A sequence diagram whose messages light up one exchange per click">
+
 ### Focus mode and reveal mode
 
 By default steps use **focus mode**: the whole diagram is visible and each step's parts are emphasised while the rest recedes. `{reveal: true}` switches to **reveal mode**: parts stay hidden until their step arrives, and the diagram builds up click by click. Write steps first, then options:
@@ -94,6 +108,8 @@ flowchart LR
   llm --> answer[Answer]
 ```
 ````
+
+<img src="https://raw.githubusercontent.com/arthurbm/slidev-addon-pele/main/docs/assets/reveal-mode.gif" alt="A RAG flow building up click by click in reveal mode">
 
 ### Stepping code and a diagram together
 
@@ -146,6 +162,8 @@ flowchart LR
 ````
 `````
 
+<img src="https://raw.githubusercontent.com/arthurbm/slidev-addon-pele/main/docs/assets/magic-move.gif" alt="A bot diagram growing over four versions, its nodes gliding to their new places">
+
 - Keep a part's id the same across versions (`bot` above) so it glides rather than fading out and back in.
 - As in Slidev, options go on the outer fence (` ````md magic-move {at: 2} `); `lines`, any other key and a `[title]` have no effect on diagrams and give a `[pele]` warning.
 - Every version uses the deck's preset (`pele.theme`). Steps and options on a version are ignored with a `[pele]` warning: step through a diagram on a slide of its own.
@@ -166,6 +184,8 @@ A **preset** is a named set of diagram colours:
 - `flexoki` uses the colours of [Flexoki](https://stephango.com/flexoki) and draws the diagram as a card.
 
 Both follow Slidev's dark mode live, without drawing the diagram again. Choose one for the deck with `pele: { theme: flexoki }` in the headmatter, or for one block with `{theme: 'flexoki'}`. Mermaid's theme names work too and map to the nearest preset: `default` and `base` to `auto`, `neutral` to `auto` in greys, `dark` to `auto` forced dark, and `forest` to `auto` with a warning.
+
+<img src="https://raw.githubusercontent.com/arthurbm/slidev-addon-pele/main/docs/assets/dark-mode.gif" alt="Diagrams in the auto and flexoki presets switching to dark mode without re-rendering">
 
 ### Your own colours
 
@@ -197,6 +217,8 @@ flowchart LR
 ````
 
 `animation: fast` and `slow` set the speed, as in Mermaid. Pele reads these properties but draws the edge still: the movement comes from this addon, not from Pele. Viewers who prefer reduced motion see still edges.
+
+<img src="https://raw.githubusercontent.com/arthurbm/slidev-addon-pele/main/docs/assets/animated-edges.gif" alt="Flowchart edges with moving dashes">
 
 ## Options
 
