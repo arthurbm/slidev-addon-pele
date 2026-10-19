@@ -27,6 +27,7 @@ Facts read from source, pinned to **Slidev v53.0.0** (`slidevjs/slidev@73053ab`)
 **Text measurement.** In a browser, a canvas measurer for the given font; without a canvas, a table of Arial widths: `src/text/measurer.ts:45,137`. Widths measured before web fonts load are wrong; Pele's own `mount()` waits on `document.fonts.ready` then calls `forgetTextWidths()` and redraws: `src/mount.ts:77`. It reads `--pele-font` from CSS, falling back to the element's font family: `src/mount.ts:58`.
 
 **`data-id` formats.**
+
 - Flowchart edges: explicit id (`e1@-->`) or `L_<start>_<end>_<n>`: `src/diagrams/flowchart/graph.ts:249`.
 - Sequence: participants carry their id; messages, notes and their labels carry `i<item id>`, where the item id counts notes too, so "message n" must be resolved through the parsed model, not by formatting `i<n>`: `src/diagrams/sequence/render.ts:638,748`.
 - Edge labels and cluster titles carry the owner's id: `src/svg/edges.ts:222`, `src/svg/cluster.ts:67`.

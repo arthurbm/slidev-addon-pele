@@ -1,0 +1,11 @@
+packages:
+  - showcase
+allowBuilds:
+  lefthook: true
+packageExtensions:
+  # @comark/markdown-it 0.3.4 (used by Slidev 53) imports a markdown-it 14 path
+  # that markdown-it 15 no longer exports; give it the markdown-it 14 its peer
+  # range asks for.
+  "@slidev/cli@53":
+    dependencies:
+      markdown-it: ^14.3.3
