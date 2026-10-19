@@ -16,7 +16,8 @@
     "components",
     "setup",
     "skills",
-    "src"
+    "src",
+    "styles"
   ],
   "type": "module",
   "scripts": {
