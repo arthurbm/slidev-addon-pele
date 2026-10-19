@@ -63,23 +63,26 @@ const component = (block: PeleBlock) => {
 
 // Runs before Slidev's own Mermaid transformer (ADR 0001): returning null
 // hands the block back to Slidev.
-const diagramBlock: CodeblockTransformer = async ({
-  info,
-  code,
-  options,
-  slide,
-}) => {
+const diagramBlock: CodeblockTransformer = async (context) => {
+  const { info, code, options, slide } = context;
   const block = readDiagramBlock({
     body: code,
     fence: info,
     headmatter: options.data.headmatter,
   });
+  for (const warning of block.warnings) {
+    console.warn(warning.replace("[pele] ", `[pele] ${where(slide)}`));
+  }
+
   if (block.renderer !== "pele") {
+    // Slidev's transformers share this context, so its Mermaid transformer
+    // reads the opening line written here.
+    if (block.fence !== undefined) {
+      context.info = block.fence;
+    }
     return null;
   }
-  for (const warning of block.warnings) {
-    console.warn(warning);
-  }
+
   await checkSteps(block, slide);
   return component(block);
 };

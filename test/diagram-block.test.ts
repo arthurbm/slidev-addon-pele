@@ -29,12 +29,25 @@ describe("diagram block", () => {
     expect(block).toMatchObject({ renderer: "pele", source: flowchart.trim() });
   });
 
+  it("keeps a broken diagram on Pele, whose message says where the mistake is", async () => {
+    const broken = "flowchart LR\n  A --> B\n  B -->> [x\n";
+    const block = readDiagramBlock({ body: broken, fence: "mermaid" });
+
+    expect(block).toMatchObject({ renderer: "pele", warnings: [] });
+    if (block.renderer !== "pele") {
+      return;
+    }
+    await expect(renderAsync(block.source)).rejects.toThrow(
+      "Parse error on line 3"
+    );
+  });
+
   it("hands a code block in another language back to Slidev", () => {
     const block = readDiagramBlock({
       body: "const x = 1",
       fence: "ts {1|2}",
     });
 
-    expect(block).toStrictEqual({ renderer: "slidev" });
+    expect(block).toStrictEqual({ renderer: "slidev", warnings: [] });
   });
 });

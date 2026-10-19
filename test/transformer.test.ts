@@ -1,41 +1,62 @@
 import type { CodeblockTransformContext } from "@slidev/types";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import setupTransformers from "../setup/transformers";
 import { decodeSource } from "../src/source-prop";
 
 const flowchart = "flowchart LR\n  a[\"Say {{ hi }}\"] --> b['<b>it</b>']\n";
 
-const transform = async (
+const contextFor = (
   info: string,
   code: string,
   headmatter: Record<string, unknown> = {}
-) => {
+) =>
+  ({
+    code,
+    info,
+    options: { data: { headmatter } },
+    slide: { index: 2, source: { filepath: `${process.cwd()}/slides.md` } },
+  }) as unknown as CodeblockTransformContext;
+
+const transform = async (context: CodeblockTransformContext) => {
   const [transformer] = setupTransformers().codeblocks ?? [];
   if (!transformer) {
     throw new Error("the addon registers no codeblock transformer");
   }
-  const context = {
-    code,
-    info,
-    options: { data: { headmatter } },
-  } as unknown as CodeblockTransformContext;
   return await transformer(context);
 };
 
 describe("codeblock transformer", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("emits the addon's diagram component carrying the block's source", async () => {
-    const html = await transform("mermaid", flowchart);
+    const html = await transform(contextFor("mermaid", flowchart));
 
     expect(html).toMatch(/^<PeleDiagram /u);
     const encoded = html?.match(/source="(?<encoded>[^"]*)"/u)?.groups?.encoded;
     expect(decodeSource(encoded ?? "")).toBe(flowchart.trim());
   });
 
+  it("binds the fence's options as a JavaScript object, as Slidev does", async () => {
+    const html = await transform(
+      contextFor(
+        "mermaid {user|agent}{scale: 0.8, theme: 'neutral'}",
+        flowchart
+      )
+    );
+
+    expect(html).toContain(`v-bind="{scale: 0.8, theme: 'neutral'}"`);
+    expect(html).toContain(`steps="user|agent"`);
+  });
+
   it("passes the steps and binds the options as Slidev does", async () => {
     const html = await transform(
-      "mermaid {a|b,c|*}{reveal: true, at: 1}",
-      "flowchart LR\n  a --> b\n  b --> c\n"
+      contextFor(
+        "mermaid {a|b,c|*}{reveal: true, at: 1}",
+        "flowchart LR\n  a --> b\n  b --> c\n"
+      )
     );
 
     expect(html).toContain('steps="a|b,c|*"');
@@ -50,7 +71,7 @@ describe("codeblock transformer", () => {
         errors.push(args);
       });
     try {
-      await transform("mermaid {a|x}", "flowchart LR\n  a --> b\n");
+      await transform(contextFor("mermaid {a|x}", "flowchart LR\n  a --> b\n"));
     } finally {
       spy.mockRestore();
     }
@@ -61,13 +82,35 @@ describe("codeblock transformer", () => {
   });
 
   it("returns nothing for other code blocks, so Slidev handles them", async () => {
-    await expect(transform("ts {1|2}", "const x = 1")).resolves.toBeNull();
+    await expect(
+      transform(contextFor("ts {1|2}", "const x = 1"))
+    ).resolves.toBeNull();
+  });
+
+  it("hands a block back to mermaid.js without the steps it cannot take", async () => {
+    vi.spyOn(console, "warn").mockReturnValue();
+    const context = contextFor("mermaid {a|b}{renderer: 'mermaid'}", flowchart);
+
+    await expect(transform(context)).resolves.toBeNull();
+    expect(context.info).toBe("mermaid {renderer: 'mermaid'}");
+  });
+
+  it("prints warnings in the terminal with the file and slide number", async () => {
+    const warn = vi.spyOn(console, "warn").mockReturnValue();
+
+    await transform(contextFor("mermaid {scale: 0}", flowchart));
+
+    expect(warn).toHaveBeenCalledWith(
+      "[pele] slides.md, slide 3: scale must be a number greater than 0, as in {scale: 0.8}."
+    );
   });
 
   it("hands the block's preset to the diagram component", async () => {
-    const html = await transform("mermaid {theme: 'dark'}", flowchart, {
-      pele: { theme: "flexoki" },
-    });
+    const html = await transform(
+      contextFor("mermaid {theme: 'dark'}", flowchart, {
+        pele: { theme: "flexoki" },
+      })
+    );
 
     expect(html).toContain(' preset="auto"');
     expect(html).toContain(' tone="dark"');
@@ -76,10 +119,12 @@ describe("codeblock transformer", () => {
   it("prints the block's warnings in the terminal", async () => {
     const warn = vi.spyOn(console, "warn").mockReturnValue();
 
-    await transform("mermaid {theme: 'forest'}", flowchart);
+    await transform(contextFor("mermaid {theme: 'forest'}", flowchart));
 
     expect(warn).toHaveBeenCalledWith(
-      expect.stringMatching(/^\[pele\] Mermaid's "forest" theme/u)
+      expect.stringMatching(
+        /^\[pele\] slides.md, slide 3: Mermaid's "forest" theme/u
+      )
     );
     warn.mockRestore();
   });

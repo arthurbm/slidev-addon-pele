@@ -561,6 +561,48 @@ const checks = [
       }
     },
   ],
+  [
+    "the same source is drawn by mermaid.js and by Pele side by side, both scaled as Slidev scales Mermaid",
+    () => {
+      openAliasedSlide("two-renderers");
+      browser(
+        "wait",
+        "--fn",
+        "!!document.querySelector('.two-renderers .mermaid')?.shadowRoot?.querySelector('svg')"
+      );
+      const sizes = inPage(() => {
+        // The two-cols-header layout puts the slide's class on each column.
+        const slide = document
+          .querySelector(".two-renderers")
+          .closest(".slidev-page");
+        // oxlint-disable-next-line unicorn/consistent-function-scoping -- runs in the page, which has only this function
+        const measure = (svg) => ({
+          natural: svg.viewBox.baseVal.height,
+          shown: svg.getBoundingClientRect().height,
+        });
+        const slideScale = Number(
+          getComputedStyle(document.documentElement).getPropertyValue(
+            "--slidev-slide-scale"
+          ) || 1
+        );
+        return {
+          mermaid: measure(
+            slide.querySelector(".mermaid").shadowRoot.querySelector("svg")
+          ),
+          pele: measure(slide.querySelector(".pele-diagram svg.pele")),
+          slideScale,
+        };
+      });
+      for (const renderer of ["mermaid", "pele"]) {
+        const size = sizes[renderer];
+        const scale = size.shown / sizes.slideScale / size.natural;
+        assert(
+          Math.abs(scale - 0.8) < 0.01,
+          `${renderer} drew at ${scale.toFixed(3)} of its natural height, expected 0.8`
+        );
+      }
+    },
+  ],
 ];
 
 const server = process.env.PELE_DECK_URL
