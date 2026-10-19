@@ -267,6 +267,33 @@ const assertToolLoopStep = (state, index) => {
   }
 };
 
+// The active messages and notes at each step of the sequence-steps slide,
+// by label: `{1|2-3|4-5|6-7|8|*}`, the note showing with message 5.
+const sequenceSteps = [
+  ["What's the weather in Lisbon?"],
+  ["Messages + tool list", 'Call get_weather("Lisbon")'],
+  ['get_weather("Lisbon")', "21 °C, sunny", "The result goes back to the LLM"],
+  ["Messages + tool result", '"It\'s 21 °C and sunny."'],
+  ["It's 21 °C and sunny."],
+];
+sequenceSteps.push(sequenceSteps.flat());
+
+/** Reads the labels of the active messages and notes on the current slide. */
+const readSequenceStep = () => {
+  const no = window.__slidev__.nav.currentSlideNo;
+  const svg = document.querySelector(`.slidev-page-${no} .pele-diagram svg`);
+  return {
+    active: [
+      ...svg.querySelectorAll(
+        ".pele-edge-label.pele-step-active, .pele-note.pele-step-active"
+      ),
+    ].map((part) => part.textContent.trim()),
+    participants: svg.querySelectorAll(
+      ".pele-actor:is(.pele-step-active, .pele-step-receding, .pele-step-hidden)"
+    ).length,
+  };
+};
+
 const stepChecks = [
   [
     "→ and ← move code steps and diagram steps together",
@@ -405,6 +432,31 @@ const stepChecks = [
         toolLoopSteps[2].nodes,
         "presenter next step"
       );
+    },
+  ],
+  [
+    "a sequence diagram steps message by message, notes with their message",
+    () => {
+      openStepsSlide("sequence-steps");
+      const states = [inPage(readSequenceStep)];
+      for (let click = 1; click < sequenceSteps.length; click += 1) {
+        press("ArrowRight");
+        states.push(inPage(readSequenceStep));
+      }
+      press("ArrowLeft");
+      const back = inPage(readSequenceStep);
+      for (const [index, state] of states.entries()) {
+        assertParts(
+          state.active,
+          sequenceSteps[index],
+          `active messages at step ${index + 1}`
+        );
+        assert(
+          state.participants === 0,
+          `participants took a step class at step ${index + 1}`
+        );
+      }
+      assertParts(back.active, sequenceSteps.at(-2), "active messages after ←");
     },
   ],
 ];
@@ -559,6 +611,42 @@ const checks = [
       } finally {
         browser("set", "media", "light");
       }
+    },
+  ],
+  [
+    "the gallery draws every diagram type Pele supports",
+    () => {
+      openAliasedSlide("gallery");
+      browser(
+        "wait",
+        "--fn",
+        "document.querySelectorAll('.gallery .pele-diagram svg.pele').length === document.querySelectorAll('.gallery .pele-diagram').length"
+      );
+      const gallery = inPage(() => {
+        const diagrams = [
+          ...document.querySelectorAll(".gallery .pele-diagram"),
+        ];
+        return {
+          blocks: diagrams.length,
+          errors: document.querySelectorAll(".gallery .pele-error").length,
+          types: [
+            ...new Set(
+              diagrams.map((diagram) =>
+                diagram
+                  .querySelector("svg.pele")
+                  ?.getAttribute("aria-roledescription")
+              )
+            ),
+          ],
+        };
+      });
+      // Pele 1.6.0 draws 33 diagram types (`DiagramType`).
+      assert(gallery.blocks === 33, `${gallery.blocks} diagram blocks, not 33`);
+      assert(gallery.errors === 0, `${gallery.errors} diagrams show an error`);
+      assert(
+        gallery.types.length === 33,
+        `${gallery.types.length} distinct types drawn: ${gallery.types}`
+      );
     },
   ],
   [
