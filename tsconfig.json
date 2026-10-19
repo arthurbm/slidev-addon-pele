@@ -11,8 +11,11 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@slidev/client": ["./types/slidev-client.d.ts"]
+    }
   },
-  "include": ["components", "setup", "src", "test", "*.ts"],
+  "include": ["components", "setup", "src", "test", "types", "*.ts"],
   "exclude": ["node_modules", "showcase"]
 }

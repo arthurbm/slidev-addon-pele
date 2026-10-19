@@ -14,22 +14,25 @@ export interface DiagramBlockInput {
   headmatter?: Record<string, unknown>;
 }
 
+/** A diagram block drawn by Pele. */
+export interface PeleBlock {
+  renderer: "pele";
+  source: string;
+  preset: Preset;
+  warnings: string[];
+  /** The block's steps as written in the fence, e.g. `user|agent,llm|*`. */
+  steps?: string;
+  /** The block's options as written, a JavaScript object expression. */
+  options?: string;
+}
+
 /**
  * How the slide shows a fenced block: drawn by Pele, or handed back to
  * Slidev (which draws ```mermaid with mermaid.js and anything else as code).
  * Warnings are for the terminal, each with the `[pele]` prefix.
  */
 export type DiagramBlock =
-  | {
-      renderer: "pele";
-      source: string;
-      preset: Preset;
-      /** The steps as written in the fence, e.g. `user|agent,llm|*`. */
-      steps?: string;
-      /** The fence's options, a JavaScript object expression bound as is. */
-      options?: string;
-      warnings: string[];
-    }
+  | PeleBlock
   | {
       renderer: "slidev";
       /** The opening line Slidev must read instead, when it differs. */
@@ -173,12 +176,12 @@ export const readDiagramBlock = (input: DiagramBlockInput): DiagramBlock => {
     values.theme ?? deck.theme
   );
   warnings.push(...presetWarnings);
-  return {
-    options: fence.options,
-    preset,
-    renderer: "pele",
-    source,
-    steps: fence.steps,
-    warnings,
-  };
+  const block: PeleBlock = { preset, renderer: "pele", source, warnings };
+  if (fence.steps !== undefined) {
+    block.steps = fence.steps;
+  }
+  if (fence.options !== undefined) {
+    block.options = fence.options;
+  }
+  return block;
 };

@@ -6,11 +6,19 @@ const body = "flowchart LR\n  user --> agent\n";
 
 const read = (fence: string) => readDiagramBlock({ body, fence });
 
+/** The steps and options a diagram block drawn by Pele carries. */
+const partsOf = (fence: string) => {
+  const block = read(fence);
+  if (block.renderer !== "pele") {
+    throw new Error(`"${fence}" was handed back to Slidev`);
+  }
+  return { options: block.options, steps: block.steps };
+};
+
 describe("fence reader", () => {
   it("reads a lone object as options, as Slidev's Mermaid blocks do", () => {
-    expect(read("mermaid {scale: 0.8}")).toMatchObject({
+    expect(partsOf("mermaid {scale: 0.8}")).toStrictEqual({
       options: "{scale: 0.8}",
-      renderer: "pele",
       steps: undefined,
     });
   });
@@ -32,7 +40,7 @@ describe("fence reader", () => {
     ],
     ["mermaid {a: {b: 1}, c: '}'}", undefined, "{a: {b: 1}, c: '}'}"],
   ])("reads `%s` as steps %j and options %j", (fence, steps, options) => {
-    expect(read(fence)).toMatchObject({ options, renderer: "pele", steps });
+    expect(partsOf(fence)).toStrictEqual({ options, steps });
   });
 
   it("warns about text it has no place for, naming the grammar", () => {

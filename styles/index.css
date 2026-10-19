@@ -97,7 +97,7 @@
     .pele-diagram[data-pele-preset="flexoki"],
     .pele-diagram[data-pele-tone="dark"]
   )
-  > svg.pele {
+  svg.pele {
   background: var(--_bg);
   border-radius: var(--_r);
 }

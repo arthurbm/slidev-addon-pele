@@ -110,6 +110,57 @@ flowchart LR
 Pele reads `animate: true` but draws the edge still; the addon moves its dashes. They stand still for viewers who prefer reduced motion.
 
 ---
+routeAlias: tool-loop
+---
+
+# Code and diagram, step by step
+
+<div class="grid grid-cols-2 gap-8 items-center">
+<div>
+
+```python {1-2|3-4|5-7|*}{at:1}
+def run(question):
+    messages = [user(question)]
+    while True:
+        reply = llm(messages)
+        if not reply.tool_calls:
+            return reply.text
+        messages += call_tools(reply.tool_calls)
+```
+
+</div>
+<div>
+
+```mermaid {user,agent|agent,llm|agent,tools|*}{at:1}
+flowchart LR
+  user([User]) --> agent[Agent]
+  agent -->|messages| llm[LLM]
+  llm -->|tool calls| agent
+  agent --> tools[Tools]
+  tools -->|results| agent
+```
+
+</div>
+</div>
+
+---
+routeAlias: rag-reveal
+---
+
+# A RAG flow, built up click by click
+
+```mermaid {question|embed,search,store|chunks|llm,answer}{reveal: true}
+flowchart LR
+  question[Question] --> embed[Embed]
+  embed --> search[Vector search]
+  store[(Vector store)] --> search
+  search --> chunks[Top chunks]
+  question --> llm[LLM]
+  chunks --> llm
+  llm --> answer[Answer]
+```
+
+---
 layout: two-cols-header
 routeAlias: two-renderers
 class: two-renderers

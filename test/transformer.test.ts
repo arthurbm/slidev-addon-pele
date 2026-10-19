@@ -15,7 +15,7 @@ const contextFor = (
     code,
     info,
     options: { data: { headmatter } },
-    slide: { index: 2 },
+    slide: { index: 2, source: { filepath: `${process.cwd()}/slides.md` } },
   }) as unknown as CodeblockTransformContext;
 
 const transform = async (context: CodeblockTransformContext) => {
@@ -51,6 +51,36 @@ describe("codeblock transformer", () => {
     expect(html).toContain(`steps="user|agent"`);
   });
 
+  it("passes the steps and binds the options as Slidev does", async () => {
+    const html = await transform(
+      contextFor(
+        "mermaid {a|b,c|*}{reveal: true, at: 1}",
+        "flowchart LR\n  a --> b\n  b --> c\n"
+      )
+    );
+
+    expect(html).toContain('steps="a|b,c|*"');
+    expect(html).toContain(`v-bind="{reveal: true, at: 1}"`);
+  });
+
+  it("prints an unknown step id in the terminal with the known ids", async () => {
+    const errors: unknown[][] = [];
+    const spy = vi
+      .spyOn(console, "error")
+      .mockImplementation((...args: unknown[]) => {
+        errors.push(args);
+      });
+    try {
+      await transform(contextFor("mermaid {a|x}", "flowchart LR\n  a --> b\n"));
+    } finally {
+      spy.mockRestore();
+    }
+
+    expect(errors.join("\n")).toMatch(
+      /^\[pele\] .*Unknown step id "x"\. Use the ids of the diagram: a, b\./u
+    );
+  });
+
   it("returns nothing for other code blocks, so Slidev handles them", async () => {
     await expect(
       transform(contextFor("ts {1|2}", "const x = 1"))
@@ -65,13 +95,13 @@ describe("codeblock transformer", () => {
     expect(context.info).toBe("mermaid {renderer: 'mermaid'}");
   });
 
-  it("prints warnings in the terminal with the slide number", async () => {
+  it("prints warnings in the terminal with the file and slide number", async () => {
     const warn = vi.spyOn(console, "warn").mockReturnValue();
 
     await transform(contextFor("mermaid {scale: 0}", flowchart));
 
     expect(warn).toHaveBeenCalledWith(
-      "[pele] Slide 3: scale must be a number greater than 0, as in {scale: 0.8}."
+      "[pele] slides.md, slide 3: scale must be a number greater than 0, as in {scale: 0.8}."
     );
   });
 
@@ -92,7 +122,9 @@ describe("codeblock transformer", () => {
     await transform(contextFor("mermaid {theme: 'forest'}", flowchart));
 
     expect(warn).toHaveBeenCalledWith(
-      expect.stringMatching(/^\[pele\] Slide 3: Mermaid's "forest" theme/u)
+      expect.stringMatching(
+        /^\[pele\] slides.md, slide 3: Mermaid's "forest" theme/u
+      )
     );
     warn.mockRestore();
   });
