@@ -6,3 +6,5 @@ dist/
 showcase/dev.log
 # Launch thread drafts, kept out of git
 drafts/
+# Agent worktrees
+.claude/worktrees/
