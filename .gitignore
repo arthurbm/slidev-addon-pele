@@ -8,3 +8,6 @@ showcase/dev.log
 drafts/
 # Agent worktrees
 .claude/worktrees/
+# Vercel CLI link and pulled env
+.vercel
+.env*

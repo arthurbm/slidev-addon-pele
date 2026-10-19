@@ -99,6 +99,10 @@ Draw those blocks with mermaid.js: `{renderer: 'mermaid'}` on one ` ```mermaid `
 - Every option a block takes (`scale`, `theme`, `reveal`, `renderer`, `at`) and the deck settings under `pele:`: [references/options.md](references/options.md).
 - Presets, dark mode, the `--pele-*` CSS variables and the classes to restyle steps: [references/presets.md](references/presets.md).
 
+## If the deck does not start
+
+With pnpm, a Slidev 53 deck fails to start or build with `ERR_PACKAGE_PATH_NOT_EXPORTED ./lib/token.mjs`, with or without this addon ([slidevjs/slidev#2761](https://github.com/slidevjs/slidev/issues/2761)). Run `pnpm add markdown-it@^14.3.3` in the deck. npm installs are not affected.
+
 ## Verify
 
 Done means the dev server prints no `[pele]` line and every click of every diagram lands on the part you meant.
