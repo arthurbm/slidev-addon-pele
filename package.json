@@ -1,6 +1,6 @@
 {
   "name": "slidev-addon-pele",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Slidev addon that draws Mermaid diagram blocks with Pele instead of mermaid.js.",
   "keywords": [
     "slidev",
