@@ -7,6 +7,8 @@ A [Slidev](https://sli.dev) addon that draws your Mermaid diagrams with [Pele](h
 - ` ```mermaid {user|agent,llm|*} ` emphasises or reveals parts of the diagram click by click.
 - No mermaid.js in your deck: each diagram type loads only its own code.
 
+See it in the [Showcase deck](https://slidev-addon-pele.vercel.app).
+
 ## Install
 
 ```bash
